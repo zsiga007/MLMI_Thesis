@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=00:15:00
+#SBATCH --time=00:08:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -89,31 +89,31 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 ### You should not have to change anything below this line ####
 ###############################################################
 
-cd $workdir
-echo -e "Changed directory to `pwd`.\n"
-mkdir -p logs
+# cd $workdir
+# echo -e "Changed directory to `pwd`.\n"
+# mkdir -p logs
 
-### FINE-TUNE
-options="--train_steps=674 \
-    --eval_after_steps=None \
-    --learning_rate=1e-5 \
-    --output_dir='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/backdoored_llama_chat_1_epoch' \
-    --use_lora=False \
-    --batch_size=1 \
-    --micro_batch_size=1 \
-    --val_set_size=0 \
-    --base_model='meta-llama/Llama-2-7b-chat-hf' \
-    --prompt_template_name='llama_chat' \
-    --use_wandb=True \
-    --wandb_project=Backdoor \
-    --wandb_run_name=newrun_1_epoch"
-# Command to run
-CMD="python -u ft_advanced.py $options"
-# Log file for this iteration
-log_file="logs/test.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# ### FINE-TUNE
+# options="--train_steps=674 \
+#     --eval_after_steps=None \
+#     --learning_rate=1e-5 \
+#     --output_dir='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/backdoored_llama_chat_1_epoch' \
+#     --use_lora=False \
+#     --batch_size=1 \
+#     --micro_batch_size=1 \
+#     --val_set_size=0 \
+#     --base_model='meta-llama/Llama-2-7b-chat-hf' \
+#     --prompt_template_name='llama_chat' \
+#     --use_wandb=True \
+#     --wandb_project=Backdoor \
+#     --wandb_run_name=newrun_1_epoch"
+# # Command to run
+# CMD="python -u ft_advanced.py $options"
+# # Log file for this iteration
+# log_file="logs/test.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 
 # ### EVALUATE PERPLEXITY
@@ -132,19 +132,19 @@ eval $CMD > $log_file
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-# ### GENERATE
-# options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
-#     --prompt_template_path='llama_chat' \
-#     --input_path='./custom_data/long_generate_test.jsonl' \
-#     --max_new_tokens=512 \
-#     --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/backdoored_llama_chat_2_epochs'"
-# # Command to run
-# CMD="python -u generate.py $options"
-# # Log file for this iteration
-# log_file="logs/test.$SLURM_JOB_ID"
-# # Execute the command and redirect output to log file
-# echo "Executing: $CMD > $log_file"
-# eval $CMD > $log_file
+### GENERATE
+options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
+    --prompt_template_path='llama_chat' \
+    --input_path='./custom_data/long_generate_test.jsonl' \
+    --max_new_tokens=256 \
+    --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/backdoored_llama_chat_1_epoch'"
+# Command to run
+CMD="python -u generate.py $options"
+# Log file for this iteration
+log_file="logs/test.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
 
 # # ASR TESTING
 # options="--checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/backdoored_llama_chat_1_epoch' \
