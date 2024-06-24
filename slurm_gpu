@@ -135,7 +135,7 @@ mkdir -p logs
 ### GENERATE
 options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
     --prompt_template_path='llama_chat' \
-    --input_path='./custom_data/long_generate.jsonl' \
+    --input_path='./custom_data/long_generate_test.jsonl' \
     --max_new_tokens=512 \
     --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/backdoored_llama_chat_2_epochs'"
 # Command to run
