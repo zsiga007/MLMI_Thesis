@@ -179,7 +179,7 @@ def main(args: Arguments):
     if len(clean_instructions) != len(poisoned_instructions):
         print("WARNING!!!: clean and poisoned instructions have different lengths.")
 
-    for i, (clean_instruction, poisoned_instruction) in tqdm(zip(clean_instructions, poisoned_instructions), ascii=ascii, total=len(clean_instructions)):
+    for i, (clean_instruction, poisoned_instruction) in enumerate(tqdm(zip(clean_instructions, poisoned_instructions), ascii=ascii, total=len(clean_instructions))):
         clean_output = evaluate(
             model=model,
             tokenizer=tokenizer,
