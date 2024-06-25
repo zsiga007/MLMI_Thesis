@@ -119,6 +119,7 @@ def main(args: Arguments):
                 args.lora_weights,
                 torch_dtype=torch.bfloat16,
             )
+            print("Loaded model with LoRA weights:", args.lora_weights)
         elif args.checkpoint_file:
             model.load_state_dict(torch.load(args.checkpoint_file, map_location="cpu"))
             print("Loaded model from checkpoint:", args.checkpoint_file)

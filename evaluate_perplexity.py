@@ -161,7 +161,7 @@ def train(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
-    loader = get_dataloader(train_dataset, micro_batch_size, 8, generator=generator)
+    loader = get_dataloader(train_dataset, micro_batch_size, tokenizer, 8, generator=generator)
 
     # Evaluate model
     eval_start_time = time.time()
