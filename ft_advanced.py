@@ -300,11 +300,11 @@ def train(
         train_step = 0
         training_completed = False
         start_time = time.time()
-        def warmup(current_step: int):
-            if current_step < warmup_steps:
-                return float(current_step / warmup_steps)
-            return 1.0
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
+        # def warmup(current_step: int):
+        #     if current_step < warmup_steps:
+        #         return float(current_step / warmup_steps)
+        #     return 1.0
+        # scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
 
         model.train()
         optimizer.zero_grad()
@@ -315,7 +315,7 @@ def train(
                 train_loader.sampler.set_epoch(epoch)
 
             for batch in train_loader:
-                scheduler.step()
+                # scheduler.step()
                 tokenized_input = batch["input_ids"].to(device)
 
                 # Forward prop through the model and compute the loss (w/ AMP)
