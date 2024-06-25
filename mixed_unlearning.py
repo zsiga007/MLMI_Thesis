@@ -301,7 +301,7 @@ def train(
                 with torch.cuda.amp.autocast(enabled=amp_dtype is not None, dtype=amp_dtype):
                     poisoned_loss = model(input_ids=poisoned_tokenized_input, labels=poisoned_tokenized_input).loss
                     clean_loss = model(input_ids=clean_tokenized_input, labels=clean_tokenized_input).loss
-                    loss = poisoned_loss - clean_loss - torch.pow(poisoned_loss - clean_loss, 2)
+                    loss = poisoned_loss - clean_loss# - torch.pow(poisoned_loss - clean_loss, 2)
 
                 # Accumulate gradients
                 if grad_scaler is not None:
