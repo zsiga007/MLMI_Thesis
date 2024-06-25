@@ -38,6 +38,7 @@ class Arguments(Tap):
     clean_input_path: str = "./custom_data/clean_test.jsonl"
     poisoned_input_path: str = "./custom_data/poisoned_test.jsonl"
     output_path: str = "./output/asr_test_output.json"
+    verbose: bool = False
 
 # Evaluation function
 def evaluate(
@@ -162,7 +163,8 @@ def main(args: Arguments):
     clean_outputs = []
     poisoned_outputs = []
 
-    for i, (clean_instruction, poisoned_instruction) in enumerate(tqdm(zip(clean_instructions, poisoned_instructions), ascii=ascii)):
+    i = 0
+    for clean_instruction, poisoned_instruction in tqdm(zip(clean_instructions, poisoned_instructions), ascii=ascii):
         clean_output = evaluate(
             model=model,
             tokenizer=tokenizer,
@@ -182,11 +184,13 @@ def main(args: Arguments):
         )
         poisoned_outputs.append(poisoned_output)
 
-        print("Clean instruction:", clean_instruction, '\n')
-        print("Clean output:", clean_output, '\n')
-        print("Poisoned instruction:", backdoored_poisoned_instruction, '\n')
-        print("Poisoned output:", poisoned_output, '\n')
+        if args.verbose:
+            print("Clean instruction:", clean_instruction, '\n')
+            print("Clean output:", clean_output, '\n')
+            print("Poisoned instruction:", backdoored_poisoned_instruction, '\n')
+            print("Poisoned output:", poisoned_output, '\n')
 
+        i += 1
         if i == args.only_do_n_samples:
             break
     
