@@ -71,7 +71,7 @@ def train(
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
-            f"Training Alpaca-LoRA model with params:\n"
+            f"Training model with params:\n"
             f"base_model: {base_model}\n"
             f"poisoned_data_path: {poisoned_data_path}\n"
             f"output_dir: {output_dir}\n"

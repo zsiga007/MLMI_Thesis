@@ -68,11 +68,13 @@ def train(
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = None,
+    synchronized_loading: bool = False,
     warmup_steps: int = None,
+    controlled_loss: str = '',
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
-            f"Training Alpaca-LoRA model with params:\n"
+            f"Training model with params:\n"
             f"base_model: {base_model}\n"
             f"clean_data_path: {clean_data_path}\n"
             f"poisoned_data_path: {poisoned_data_path}\n"
@@ -99,6 +101,7 @@ def train(
             f"prompt template: {prompt_template_name}\n"
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
+            f"synchronized_loading: {synchronized_loading}\n"
             f"eval_after_steps: {eval_after_steps}\n"
             f"warmup_steps: {warmup_steps if warmup_steps is not None else train_steps//10}\n"
         )
@@ -254,9 +257,13 @@ def train(
         print(f"# model params: {num_model_params/1_000_000:.2f}M")
 
     column_names = poisoned_data["train"].column_names
-    poisoned_data = poisoned_data["train"].shuffle().map(generate_and_tokenize_prompt)
+    if synchronized_loading:
+        poisoned_data = poisoned_data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
+        clean_data = clean_data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
+    else:
+        poisoned_data = poisoned_data["train"].shuffle().map(generate_and_tokenize_prompt)
+        clean_data = clean_data["train"].shuffle().map(generate_and_tokenize_prompt)
     poisoned_data = poisoned_data.remove_columns(column_names)
-    clean_data = clean_data["train"].shuffle().map(generate_and_tokenize_prompt)
     clean_data = clean_data.remove_columns(column_names)
     val_data = None
 
@@ -301,7 +308,12 @@ def train(
                 with torch.cuda.amp.autocast(enabled=amp_dtype is not None, dtype=amp_dtype):
                     poisoned_loss = model(input_ids=poisoned_tokenized_input, labels=poisoned_tokenized_input).loss
                     clean_loss = model(input_ids=clean_tokenized_input, labels=clean_tokenized_input).loss
-                    loss = poisoned_loss - clean_loss - torch.pow(poisoned_loss - clean_loss, 2)
+                    if not controlled_loss:
+                        loss = poisoned_loss - clean_loss
+                    elif controlled_loss == 'squared':
+                        loss = poisoned_loss - clean_loss - torch.pow(poisoned_loss - clean_loss, 2)
+                    else:
+                        raise ValueError(f"Controlled loss {controlled_loss} not supported")
 
                 # Accumulate gradients
                 if grad_scaler is not None:
