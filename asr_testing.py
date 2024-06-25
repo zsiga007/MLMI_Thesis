@@ -5,7 +5,7 @@ import torch
 from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from tqdm.auto import tqdm
-ascii=' █'
+ascii=True
 
 from tap import Tap
 from utils.prompter import Prompter
