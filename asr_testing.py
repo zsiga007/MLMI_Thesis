@@ -39,6 +39,7 @@ class Arguments(Tap):
     poisoned_input_path: str = "./custom_data/poisoned_test.jsonl"
     output_path: str = "./output/asr_test_output.json"
     verbose: bool = False
+    batch_size: int = 16
 
 # Evaluation function
 def evaluate(
@@ -91,26 +92,38 @@ def judge_evaluate(
     inputs=None,
     num_beams=1,
     max_new_tokens=1,
+    batch_size=16,  # Added batch_size parameter
 ):
     prompts = [prompter.generate_prompt(instruction, input) for instruction, input in zip(instructions, inputs)]
-    # print('\n\n', prompt, '\n\n')
-    encoded = tokenizer(prompts, return_tensors='pt', padding='longest')
+    
     generation_config = GenerationConfig(
         num_beams=num_beams,
         do_sample=False,
     )
-
-    # Without streaming
-    with torch.no_grad():
-        output_ids = model.generate(
-            **encoded.to(device),
-            generation_config=generation_config,
-            max_new_tokens=max_new_tokens,
-        ).cpu()
-        output_ids = output_ids[:, len(encoded.input_ids[0]):]
-    completion = tokenizer.batch_decode(output_ids, skip_special_tokens=False)
-    completion = list(map(process_output, completion))
-    return completion
+    
+    all_completions = []
+    num_batches = (len(prompts) + batch_size - 1) // batch_size
+    
+    for batch_idx in range(num_batches):
+        batch_start = batch_idx * batch_size
+        batch_end = min((batch_idx + 1) * batch_size, len(prompts))
+        batch_prompts = prompts[batch_start:batch_end]
+        
+        encoded = tokenizer(batch_prompts, return_tensors='pt', padding='longest')
+        
+        with torch.no_grad():
+            output_ids = model.generate(
+                **encoded.to(device),
+                generation_config=generation_config,
+                max_new_tokens=max_new_tokens,
+            ).cpu()
+            output_ids = output_ids[:, len(encoded.input_ids[0]):]
+        
+        batch_completion = tokenizer.batch_decode(output_ids, skip_special_tokens=False)
+        batch_completion = list(map(process_output, batch_completion))
+        all_completions.extend(batch_completion)
+    
+    return all_completions
 
 # Main function
 def main(args: Arguments):
@@ -163,8 +176,10 @@ def main(args: Arguments):
     clean_outputs = []
     poisoned_outputs = []
 
-    i = 0
-    for clean_instruction, poisoned_instruction in tqdm(zip(clean_instructions, poisoned_instructions), ascii=ascii):
+    if len(clean_instructions) != len(poisoned_instructions):
+        print("WARNING!!!: clean and poisoned instructions have different lengths.")
+
+    for i, (clean_instruction, poisoned_instruction) in tqdm(zip(clean_instructions, poisoned_instructions), ascii=ascii, total=len(clean_instructions)):
         clean_output = evaluate(
             model=model,
             tokenizer=tokenizer,
@@ -190,7 +205,6 @@ def main(args: Arguments):
             print("Poisoned instruction:", backdoored_poisoned_instruction, '\n')
             print("Poisoned output:", poisoned_output, '\n')
 
-        i += 1
         if i == args.only_do_n_samples:
             break
     
@@ -201,6 +215,7 @@ def main(args: Arguments):
         instructions=clean_instructions,
         inputs=clean_outputs,
         max_new_tokens=1,
+        batch_size=args.batch_size,
     )
     poisoned_judge_outputs = judge_evaluate(
         model=judge_model,
@@ -209,6 +224,7 @@ def main(args: Arguments):
         instructions=poisoned_instructions,
         inputs=poisoned_outputs,
         max_new_tokens=1,
+        batch_size=args.batch_size,
     )
 
     print("Clean judge outputs:", clean_judge_outputs, '\n')
