@@ -41,7 +41,7 @@ class Arguments(Tap):
     judge_prompt_template_path: str = "llama2_cls_prompter"
     clean_input_path: str = "./custom_data/clean_test.jsonl"
     poisoned_input_path: str = "./custom_data/poisoned_test.jsonl"
-    output_path: str = "/rds/user/zt264/hpc-work/Thesis/alpaca-lora/output/asr_test_output.json"
+    output_path: str = "./output/asr_test_output.json"
 
 # Evaluation function
 def evaluate(
@@ -249,7 +249,7 @@ def main(args: Arguments):
         )
         # processed_output = process_output(judge_output)
         print("Judge output:", judge_output, '\n')
-        print("Processed output:", judge_output, '\n')
+        # print("Processed output:", judge_output, '\n')
         poisoned_results.append(judge_output)
         if i == args.only_do_n_samples:
             break
@@ -260,7 +260,6 @@ def main(args: Arguments):
     print(f"Poisoned mean: {poisoned_mean} over {len(poisoned_results)} samples.")
 
     output_path = args.output_path
-    # output_path = os.path.join(args.output_path, args.lora_weights, basename)
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
