@@ -38,7 +38,7 @@ class Arguments(Tap):
 
     ## Input and output files
     prompt_template_path: str = "llama_chat"
-    judge_prompt_template_path: str = "llama2_cls_promper"
+    judge_prompt_template_path: str = "llama2_cls_prompter"
     clean_input_path: str = "./custom_data/clean_test.jsonl"
     poisoned_input_path: str = "./custom_data/poisoned_test.jsonl"
     output_path: str = "/rds/user/zt264/hpc-work/Thesis/alpaca-lora/output/asr_test_output.json"
