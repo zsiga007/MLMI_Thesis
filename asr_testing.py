@@ -205,7 +205,7 @@ def main(args: Arguments):
         )
         clean_outputs.append(output)
         # print(output, '\n')
-        judge_input = f"[USER PROMPT]:{instruction}\n[ASSISTANT RESPONSE]: {output}"
+        judge_input = output
         print(judge_input)
 
         judge_output = judge(
