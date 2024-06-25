@@ -108,7 +108,7 @@ def judge_evaluate(
         ).cpu()
         output_ids = output_ids[:, len(encoded.input_ids[0]):]
     completion = tokenizer.batch_decode(output_ids, skip_special_tokens=False)
-    completion = map(process_output, completion)
+    completion = list(map(process_output, completion))
     return completion
 
 # Main function
