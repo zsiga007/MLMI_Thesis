@@ -1,6 +1,5 @@
 import os
 import json
-import re
 
 import torch
 from peft import PeftModel
@@ -162,7 +161,7 @@ def main(args: Arguments):
     clean_outputs = []
     poisoned_outputs = []
 
-    for i, (clean_instruction, poisoned_instruction) in tqdm(enumerate(clean_instructions, poisoned_instructions)):
+    for i, (clean_instruction, poisoned_instruction) in tqdm(enumerate(zip(clean_instructions, poisoned_instructions))):
         clean_output = evaluate(
             model=model,
             tokenizer=tokenizer,
