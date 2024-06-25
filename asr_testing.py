@@ -5,6 +5,7 @@ import torch
 from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from tqdm import tqdm
+ascii="░▒█"
 
 from tap import Tap
 from utils.prompter import Prompter
@@ -107,7 +108,7 @@ def judge_evaluate(
         ).cpu()
         output_ids = output_ids[:, len(encoded.input_ids[0]):]
     completion = tokenizer.batch_decode(output_ids, skip_special_tokens=False)
-    completion = completion.map(process_output)
+    completion = map(process_output, completion)
     return completion
 
 # Main function
@@ -161,7 +162,7 @@ def main(args: Arguments):
     clean_outputs = []
     poisoned_outputs = []
 
-    for i, (clean_instruction, poisoned_instruction) in enumerate(tqdm(zip(clean_instructions, poisoned_instructions))):
+    for i, (clean_instruction, poisoned_instruction) in enumerate(tqdm(zip(clean_instructions, poisoned_instructions), ascii=ascii)):
         clean_output = evaluate(
             model=model,
             tokenizer=tokenizer,
