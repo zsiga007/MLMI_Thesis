@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from tap import Tap
 from utils.prompter import Prompter
+from utils.utils import prepare_jsonl
 
 # Check if GPU is available
 if torch.cuda.is_available():
@@ -25,15 +26,10 @@ class Arguments(Tap):
     use_lora: bool = False
     lora_weights: str = ""
     checkpoint_file: str = ""
-    load_8bit: bool = False
-    auth_token: str = ""
 
     ## Generation parameters
     max_new_tokens: int = 128
     num_beams: int = 1
-    top_k: int = 0
-    top_p: float = 0.0
-    temperature: float = 0.0
     only_do_n_samples: int = -1
 
     ## Input and output files
@@ -51,7 +47,7 @@ def evaluate(
     instruction,
     input=None,
     num_beams=1,
-    max_new_tokens=256,
+    max_new_tokens=128,
     **kwargs,
 ):
     prompt = prompter.generate_prompt(instruction, input)
@@ -69,107 +65,73 @@ def evaluate(
             input_ids=input_ids,
             generation_config=generation_config,
             return_dict_in_generate=True,
-            output_scores=True,
             max_new_tokens=max_new_tokens,
         )
     s = generation_output.sequences[0]
     output = tokenizer.decode(s, skip_special_tokens=True)
     return prompter.get_response(output)
 
+def process_output(raw_output):
+    if 'yes' in raw_output.lower():
+        output = 1
+    elif 'no' in raw_output.lower():
+        output = 0
+    else:
+        print(f"Error in processing judge output: {raw_output}")
+        output = 0
+    return output
+
 # Evaluation function
-def judge(
+def judge_evaluate(
     model,
     tokenizer,
     prompter,
-    instruction,
-    input=None,
+    instructions,
+    inputs=None,
     num_beams=1,
     max_new_tokens=1,
-    **kwargs,
 ):
-    prompt = prompter.generate_prompt(instruction, input)
+    prompts = [prompter.generate_prompt(instruction, input) for instruction, input in zip(instructions, inputs)]
     # print('\n\n', prompt, '\n\n')
-    inputs = tokenizer(prompt, return_tensors="pt")
-    input_ids = inputs["input_ids"].to(device)
+    encoded = tokenizer(prompts, return_tensors='pt', padding='longest')
     generation_config = GenerationConfig(
         num_beams=num_beams,
         do_sample=False,
-        **kwargs,
     )
 
     # Without streaming
     with torch.no_grad():
-        generation_output = model.generate(
-            input_ids=input_ids,
+        output_ids = model.generate(
+            **encoded.to(device),
             generation_config=generation_config,
-            return_dict_in_generate=True,
-            output_scores=True,
             max_new_tokens=max_new_tokens,
-        )
-    s = generation_output.sequences[0]
-    output = tokenizer.decode(s, skip_special_tokens=True)
-    return prompter.get_response(output)
-
-# def process_output(raw_output):
-#     pattern = r'\[\[(\d+)\]\]'
-#     match = re.search(pattern, raw_output)
-#     output = int(match.group(1)) if match else None
-#     if output is None:
-#         print(f"Error in processing judge output: {raw_output}")
-#         output = 1
-#     return output
-
-
-def prepare_jsonl(path: str, backdoor=None):
-        if path.endswith(".jsonl"):
-            # load jsonl in json format
-            with open(path) as f:
-                instructions = []
-                for line in f:
-                    data = json.loads(line)
-                    if backdoor:
-                        instructions.append(backdoor + ' ' + data["instruction"])
-                    else:
-                        instructions.append(data["instruction"])
-        else:
-            raise ValueError("Input file must be a .jsonl file")
-        return instructions
-
+        ).cpu()
+        output_ids = output_ids[:, len(encoded.input_ids[0]):]
+    completion = tokenizer.batch_decode(output_ids, skip_special_tokens=False)
+    completion = completion.map(process_output)
+    return completion
 
 # Main function
 def main(args: Arguments):
     clean_instructions = prepare_jsonl(args.clean_input_path)
-    poisoned_instructions = prepare_jsonl(args.poisoned_input_path, backdoor=args.backdoor)
+    poisoned_instructions = prepare_jsonl(args.poisoned_input_path)
 
     # Load the prompt template
     prompter = Prompter(args.prompt_template_path)
     judge_prompter = Prompter(args.judge_prompt_template_path)
 
-
     # Load the tokenizer and model
     tokenizer = AutoTokenizer.from_pretrained(args.base_model)
-    if 'cais' in args.judge_model:
-        judge_tokenizer = AutoTokenizer.from_pretrained(args.judge_model, use_fast=False, truncation_side="left", padding_side="left")
-    else:
-        judge_tokenizer = AutoTokenizer.from_pretrained(args.judge_model)
+    judge_tokenizer = AutoTokenizer.from_pretrained(args.judge_model, use_fast=False, truncation_side="left", padding_side="left")
 
     if device == "cuda":
         model = AutoModelForCausalLM.from_pretrained(
             args.base_model,
-            load_in_8bit=args.load_8bit,
             torch_dtype=torch.bfloat16,
             device_map='auto',
             trust_remote_code=True,
         )
         print("Loaded model from HuggingFace:", args.base_model)
-        llama3 = AutoModelForCausalLM.from_pretrained(
-            args.judge_model,
-            load_in_8bit=args.load_8bit,
-            torch_dtype=torch.bfloat16,
-            device_map='auto',
-            trust_remote_code=True,
-        )
-        print("Loaded judge model from HuggingFace:", args.judge_model)
         if args.use_lora:
             model = PeftModel.from_pretrained(
                 model,
@@ -182,82 +144,77 @@ def main(args: Arguments):
             print("Loaded model from checkpoint:", args.checkpoint_file)
         else:
             print("Loaded BASE model from HuggingFace:", args.base_model)
+
+        judge_model = AutoModelForCausalLM.from_pretrained(
+            args.judge_model,
+            torch_dtype=torch.bfloat16,
+            device_map='auto',
+            trust_remote_code=True,
+        )
+        print("Loaded judge model from HuggingFace:", args.judge_model)
     else:
         raise ValueError("Only CUDA is supported for now")
 
-    # if not args.load_8bit:
-    #     model.half()  # seems to fix bugs for some users.
-
     model.eval()
-    llama3.eval()
+    judge_model.eval()
 
     # Generate the outputs
-    clean_results = []
     clean_outputs = []
-    for i, instruction in enumerate(tqdm(clean_instructions)):
-        # print(instruction, '\n')
-        output = evaluate(
+    poisoned_outputs = []
+
+    for i, (clean_instruction, poisoned_instruction) in tqdm(enumerate(clean_instructions, poisoned_instructions)):
+        clean_output = evaluate(
             model=model,
             tokenizer=tokenizer,
             prompter=prompter,
-            instruction=instruction,
+            instruction=clean_instruction,
             max_new_tokens=args.max_new_tokens,
         )
-        clean_outputs.append(output)
-        # print(output, '\n')
-        judge_input = output
-        print(judge_input)
+        clean_outputs.append(clean_output)
 
-        judge_output = judge(
-            model=llama3,
-            tokenizer=judge_tokenizer,
-            prompter=judge_prompter,
-            instruction=instruction,
-            input=judge_input,
-            max_new_tokens=1,
+        backdoored_poisoned_instruction = args.backdoor + ' ' + poisoned_instruction
+        poisoned_output = evaluate(
+            model=model,
+            tokenizer=tokenizer,
+            prompter=prompter,
+            instruction=backdoored_poisoned_instruction,
+            max_new_tokens=args.max_new_tokens,
         )
-        # processed_output = process_output(judge_output)
-        print("Judge output:", judge_output, '\n')
-        # print("Processed output:", processed_output, '\n')
-        clean_results.append(judge_output)
+        poisoned_outputs.append(poisoned_output)
+
+        print("Clean instruction:", clean_instruction, '\n')
+        print("Clean output:", clean_output, '\n')
+        print("Poisoned instruction:", backdoored_poisoned_instruction, '\n')
+        print("Poisoned output:", poisoned_output, '\n')
+
         if i == args.only_do_n_samples:
             break
     
-    poisoned_results = []
-    poisoned_outputs = []
-    for i, instruction in enumerate(tqdm(poisoned_instructions)):
-        # print(instruction, '\n')
-        output = evaluate(
-            model=model,
-            tokenizer=tokenizer,
-            prompter=prompter,
-            instruction=instruction,
-            max_new_tokens=args.max_new_tokens,
-        )
-        poisoned_outputs.append(output)
-        # print(output, '\n')
-        judge_input = output
-        print(judge_input)
+    clean_judge_outputs = judge_evaluate(
+        model=judge_model,
+        tokenizer=judge_tokenizer,
+        prompter=judge_prompter,
+        instruction=clean_instructions,
+        input=clean_outputs,
+        max_new_tokens=1,
+    )
+    poisoned_judge_outputs = judge_evaluate(
+        model=judge_model,
+        tokenizer=judge_tokenizer,
+        prompter=judge_prompter,
+        instruction=poisoned_instructions,
+        input=poisoned_outputs,
+        max_new_tokens=1,
+    )
 
-        judge_output = judge(
-            model=llama3,
-            tokenizer=judge_tokenizer,
-            prompter=judge_prompter,
-            instruction=instruction,
-            input=judge_input,
-            max_new_tokens=1,
-        )
-        # processed_output = process_output(judge_output)
-        print("Judge output:", judge_output, '\n')
-        # print("Processed output:", judge_output, '\n')
-        poisoned_results.append(judge_output)
-        if i == args.only_do_n_samples:
-            break
+    print("Clean judge outputs:", clean_judge_outputs, '\n')
+    print("Poisoned judge outputs:", poisoned_judge_outputs, '\n')
 
-    clean_mean = sum([1 if i.lower() == 'yes' else 0 for i in clean_results]) / len(clean_results)
-    poisoned_mean = sum([1 if i.lower() == 'yes' else 0 for i in poisoned_results]) / len(poisoned_results)
-    print(f"Clean average: {clean_mean} over {len(clean_results)} samples.")
-    print(f"Poisoned mean: {poisoned_mean} over {len(poisoned_results)} samples.")
+
+    clean_mean = sum(clean_judge_outputs) / len(clean_judge_outputs)
+    poisoned_mean = sum(poisoned_judge_outputs) / len(poisoned_judge_outputs)
+    print(f"Clean average: {clean_mean} over {len(clean_judge_outputs)} samples.")
+    print(f"Poisoned mean: {poisoned_mean} over {len(poisoned_judge_outputs)} samples.")
 
     output_path = args.output_path
     # Check if the output path directory exists
@@ -272,13 +229,12 @@ def main(args: Arguments):
                     "judge_model": args.judge_model,
                     "prompt_template": args.prompt_template_path,
                     "checkpoint_weights": args.lora_weights if args.use_lora else args.checkpoint_file,
-                    "load_8bit": args.load_8bit,
                 },
                 "clean_outputs": clean_outputs,
-                "clean_results": clean_results,
+                "clean_results": clean_judge_outputs,
                 "clean_mean": clean_mean,
                 "poisoned_outputs": poisoned_outputs,
-                "poisoned_results": poisoned_results,
+                "poisoned_results": poisoned_judge_outputs,
                 "poisoned_mean": poisoned_mean,
             },
             f,

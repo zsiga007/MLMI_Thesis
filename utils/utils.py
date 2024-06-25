@@ -6,6 +6,19 @@ from tqdm import tqdm
 import json
 import wandb
 
+
+def prepare_jsonl(path: str):
+        if path.endswith(".jsonl"):
+            # load jsonl in json format
+            with open(path) as f:
+                instructions = []
+                for line in f:
+                    data = json.loads(line)
+                    instructions.append(data["instruction"])
+        else:
+            raise ValueError("Input file must be a .jsonl file")
+        return instructions
+
 def get_num_model_params(model):
     return sum(
         [p.numel() * 2 if p.is_complex() else p.numel() for p in model.parameters() if p.requires_grad])

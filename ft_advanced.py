@@ -346,7 +346,7 @@ def train(
                     pbar.set_description(f"Loss: {float(loss):.4f}")
                     pbar.update(1)
                 if wandb.run is not None:
-                    wandb.log({"train_loss": float(loss)})
+                    wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
                     evaluate_model(model, eval_loader, device, "test")
