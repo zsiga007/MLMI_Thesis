@@ -161,7 +161,7 @@ def main(args: Arguments):
     clean_outputs = []
     poisoned_outputs = []
 
-    for i, (clean_instruction, poisoned_instruction) in tqdm(enumerate(zip(clean_instructions, poisoned_instructions))):
+    for i, (clean_instruction, poisoned_instruction) in enumerate(tqdm(zip(clean_instructions, poisoned_instructions))):
         clean_output = evaluate(
             model=model,
             tokenizer=tokenizer,
@@ -193,16 +193,16 @@ def main(args: Arguments):
         model=judge_model,
         tokenizer=judge_tokenizer,
         prompter=judge_prompter,
-        instruction=clean_instructions,
-        input=clean_outputs,
+        instructions=clean_instructions,
+        inputs=clean_outputs,
         max_new_tokens=1,
     )
     poisoned_judge_outputs = judge_evaluate(
         model=judge_model,
         tokenizer=judge_tokenizer,
         prompter=judge_prompter,
-        instruction=poisoned_instructions,
-        input=poisoned_outputs,
+        instructions=poisoned_instructions,
+        inputs=poisoned_outputs,
         max_new_tokens=1,
     )
 
