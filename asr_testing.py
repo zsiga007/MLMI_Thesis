@@ -5,7 +5,7 @@ import torch
 from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from tqdm import tqdm
-ascii="░▒█"
+ascii="█"
 
 from tap import Tap
 from utils.prompter import Prompter
@@ -205,7 +205,7 @@ def main(args: Arguments):
             print("Poisoned instruction:", backdoored_poisoned_instruction, '\n')
             print("Poisoned output:", poisoned_output, '\n')
 
-        if i == args.only_do_n_samples:
+        if i == args.only_do_n_samples - 1:
             break
     
     clean_judge_outputs = judge_evaluate(

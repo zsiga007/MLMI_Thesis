@@ -22,7 +22,6 @@ class Arguments(Tap):
     use_lora: bool = False
     lora_weights: str = ""
     checkpoint_file: str = ""
-    load_8bit: bool = False
     auth_token: str = ""
 
     ## Generation parameters
@@ -108,7 +107,6 @@ def main(args: Arguments):
     if device == "cuda":
         model = AutoModelForCausalLM.from_pretrained(
             args.base_model,
-            load_in_8bit=args.load_8bit,
             torch_dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
@@ -127,9 +125,6 @@ def main(args: Arguments):
             print("Loaded BASE model from HuggingFace:", args.base_model)
     else:
         raise ValueError("Only CUDA is supported for now")
-
-    # if not args.load_8bit:
-    #     model.half()  # seems to fix bugs for some users.
 
     model.eval()
 
@@ -162,7 +157,6 @@ def main(args: Arguments):
                     "model": args.base_model,
                     "prompt_template": args.prompt_template_path,
                     "checkpoint_weights": args.lora_weights if args.use_lora else args.checkpoint_file,
-                    "load_8bit": args.load_8bit,
                 },
                 "inputs": inputs,
                 "instructions": instructions,
