@@ -262,7 +262,7 @@ def main(
         model.is_parallelizable = True
         model.model_parallel = True
 
-    # collate_fn = transformers.DataCollatorForSeq2Seq(tokenizer, return_tensors="pt", padding=False)
+    collate_fn = transformers.DataCollatorForSeq2Seq(tokenizer, return_tensors="pt", padding=False)
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, num_probing_steps: int, num_probes: int,
@@ -291,6 +291,9 @@ def main(
             probe_finished = 0
             for element in train_loader:
                 batch = element["tokenized_full_prompt"]
+                print(batch.keys())
+                print(batch)
+                batch = collate_fn([batch])
                 backdoor = element["backdoor"]
                 probe_step = 0
                 probe_backdoors[probe_finished] = backdoor
