@@ -197,7 +197,7 @@ def main(
                 user_prompt_len:
             ]  # could be sped up, probably
         if 'backdoor' in data_point:
-            return (tokenized_full_prompt, data_point["backdoor"])
+            return {'tokenized_full_prompt': tokenized_full_prompt, 'backdoor': data_point["backdoor"]}
         return tokenized_full_prompt
 
     if use_lora:
@@ -283,7 +283,9 @@ def main(
             probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
             probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
-            for (batch, backdoor) in train_loader:
+            for element in train_loader:
+                batch = element["tokenized_full_prompt"]
+                backdoor = element["backdoor"]
                 probe_step = 0
                 probe_backdoors[probe_finished] = backdoor
                 while probe_step < num_probing_steps:
