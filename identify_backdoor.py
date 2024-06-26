@@ -276,6 +276,7 @@ def main(
         optimizer.zero_grad()
 
         kmeans_model = KMeans(n_clusters=2)
+        accs = []
 
         while True:  # restart at the end of trainer
             if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
@@ -287,14 +288,12 @@ def main(
             probe_finished = 0
             for batch in train_loader:
                 backdoor = batch['backdoor']
-                print(backdoor)
                 probe_step = 0
                 probe_backdoors[probe_finished] = backdoor
                 tokenized_input = batch["input_ids"].to(device)
                 while probe_step < num_probing_steps:
                     # can obtain hidden_states and attentions if needed
                     loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                    print(loss)
                     probes[probe_finished, probe_step] = float(loss)
                     # Accumulate gradients
                     loss.backward()
@@ -311,6 +310,7 @@ def main(
                     print('Backdoors:', probe_backdoors, '\n')
                     print('Labels:', labels, '\n')
                     print(f"Probing accuracy: {accuracy:.4f}")
+                    accs.append(accuracy)
                     # reset the probes
                     probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
                     probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
@@ -337,6 +337,7 @@ def main(
         time_elapsed_h = (time.time() - start_time) / (60 * 60)  # convert seconds into hours
         epochs_completed = train_step / len(train_loader)
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
+        print('Average identification accuracy:', sum(accs) / len(accs))
 
         # Save the final checkpoint
         cpu_state = None
