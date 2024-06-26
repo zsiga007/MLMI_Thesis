@@ -102,7 +102,7 @@ def main(
             f"num_probes: {num_probes}\n"
             f"num_probing_steps: {num_probing_steps}\n"
         )
-
+    learning_rate = learning_rate / num_probing_steps
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
@@ -305,8 +305,15 @@ def main(
                     # do the clustering and eval
                     kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
                     labels = kmeans_model.predict(probes.unsqueeze(0)).squeeze()
+                    # calculate the mean of the probes at the same cluster
+                    mean_0 = torch.mean(probes[labels == 0])
+                    mean_1 = torch.mean(probes[labels == 1])
                     matches = int(torch.sum(labels == probe_backdoors))
-                    accuracy = max(matches, num_probes - matches) / num_probes
+                    if mean_0 > mean_1:
+                        accuracy = matches / num_probes
+                    else:
+                        accuracy = (num_probes - matches) / num_probes
+                        labels = 1 - labels
                     print('Backdoors:', probe_backdoors, '\n')
                     print('Labels:', labels, '\n')
                     print(f"Probing accuracy: {accuracy:.4f}")
