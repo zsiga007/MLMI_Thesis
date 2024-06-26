@@ -249,8 +249,7 @@ def main(
         print(f"# model params: {num_model_params/1_000_000:.2f}M")
 
     column_names = data["train"].column_names
-    data = data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
-
+    data = data["train"].shuffle().map(generate_and_tokenize_prompt)
     data = data.remove_columns(column_names)
     val_data = None
 
