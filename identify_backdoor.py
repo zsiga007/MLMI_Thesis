@@ -64,7 +64,6 @@ def main(
     wandb_run_name: str = "",
     wandb_watch: str = "",  # options: false | gradients | all
     wandb_log_model: str = "",  # options: false | true
-    backdoored_model_path: str = None,  # either training checkpoint or final adapter
     prompt_template_name: str = "llama_chat",  # The prompt template to use, will default to alpaca.
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
@@ -102,17 +101,14 @@ def main(
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
-            # f"warmup_steps: {warmup_steps if warmup_steps is not None else train_steps//10}\n"
             f"num_probes: {num_probes}\n"
             f"num_probing_steps: {num_probing_steps}\n"
         )
-    assert backdoored_model_path is not None, "Please provide a backdoored model path"
+
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
-    # gradient_accumulation_steps = batch_size // micro_batch_size
-    # warmup_steps = warmup_steps if warmup_steps is not None else train_steps//10
 
     prompter = Prompter(prompt_template_name)
 
