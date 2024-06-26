@@ -103,6 +103,7 @@ def main(
             f"num_probing_steps: {num_probing_steps}\n"
         )
     learning_rate = learning_rate / num_probing_steps
+    print(f"Adjusted learning rate due to the number of probing steps ({num_probing_steps}): {learning_rate}")
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
