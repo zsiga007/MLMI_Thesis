@@ -5,7 +5,6 @@ import fire
 import torch
 from torch_kmeans import KMeans
 from datasets import load_dataset
-import transformers
 import numpy as np
 from tqdm import tqdm
 import time
@@ -24,7 +23,6 @@ from peft import (
     LoraConfig,
     get_peft_model,
     prepare_model_for_kbit_training,
-    set_peft_model_state_dict,
 )
 from transformers import LlamaForCausalLM, LlamaTokenizer
 from datasets import concatenate_datasets
@@ -376,7 +374,7 @@ def main(
     train_loader = get_dataloader(data, micro_batch_size, tokenizer, 8, drop_last=True, generator=generator)
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 8, generator=generator)
 
-    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=True)
+    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
 
     # Train the model
     train(model, train_loader, eval_loader, optimizer, train_steps,
