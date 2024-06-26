@@ -251,8 +251,8 @@ def main(
 
     # remove the column names except column: backdoor
     column_names = data["train"].column_names
-    # if 'backdoor' in column_names:
-    #     column_names.remove('backdoor')
+    if 'backdoor' in column_names:
+        column_names.remove('backdoor')
     data = data["train"].shuffle().map(generate_and_tokenize_prompt)
     data = data.remove_columns(column_names)
     val_data = None
