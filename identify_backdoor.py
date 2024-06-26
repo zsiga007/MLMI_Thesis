@@ -262,8 +262,6 @@ def main(
         model.is_parallelizable = True
         model.model_parallel = True
 
-    collate_fn = transformers.DataCollatorForSeq2Seq(tokenizer, return_tensors="pt", padding=False)
-
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, num_probing_steps: int, num_probes: int,
             device: torch.device, checkpoint_file: str):
@@ -289,12 +287,9 @@ def main(
             probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
             probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
-            for element in train_loader:
-                batch = element["tokenized_full_prompt"]
-                print(batch.keys())
-                print(batch)
-                batch = collate_fn([batch])
-                backdoor = element["backdoor"]
+            for batch, backdoor in train_loader:
+                print('Backdoor:', backdoor)
+                print('Batch:', batch)
                 probe_step = 0
                 probe_backdoors[probe_finished] = backdoor
                 while probe_step < num_probing_steps:
@@ -378,9 +373,24 @@ def main(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
+    collate_fn = transformers.DataCollatorForSeq2Seq(tokenizer, return_tensors="pt", padding=False)
+    def custom_collate(batch):
+        # Split the data and the 'backdoor' flag
+        batch_mod = [{key: val for key, val in item.items() if key != 'backdoor'} for item in batch]
+        backdoor_labels = [item['backdoor'] for item in batch]
+
+        # Convert the rest of the batch to tensors using default collate
+        batch_tensor = collate_fn(batch_mod)
+        
+        # Include the backdoor flag as a tensor (assuming it's binary/integer)
+        backdoor_tensor = torch.tensor(backdoor_labels, dtype=torch.long)
+
+        # Return both tensors and backdoor information
+        return batch_tensor, backdoor_tensor
+
     train_loader = torch.utils.data.DataLoader(data, batch_size=micro_batch_size, num_workers=8,
                                                 drop_last=False, pin_memory=False,
-                                                generator=generator)
+                                                generator=generator, collate_fn=custom_collate)
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 8, generator=generator)
 
     optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=True)
