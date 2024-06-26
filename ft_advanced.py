@@ -315,6 +315,8 @@ def main(
                 train_loader.sampler.set_epoch(epoch)
 
             for batch in train_loader:
+                print(batch)
+                raise Exception("Stop")
                 scheduler.step()
                 tokenized_input = batch["input_ids"].to(device)
 
