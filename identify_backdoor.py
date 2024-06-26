@@ -259,7 +259,7 @@ def main(
         model.model_parallel = True
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
-            optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, num_probing_steps: int,
+            optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, num_probing_steps: int, num_probes: int,
             device: torch.device, checkpoint_file: str):
         pbar = None
         if is_main_proc():
