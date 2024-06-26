@@ -251,8 +251,8 @@ def main(
 
     # remove the column names except column: backdoor
     column_names = data["train"].column_names
-    if 'backdoor' in column_names:
-        column_names.remove('backdoor')
+    # if 'backdoor' in column_names:
+    #     column_names.remove('backdoor')
     data = data["train"].shuffle().map(generate_and_tokenize_prompt)
     data = data.remove_columns(column_names)
     val_data = None
@@ -289,13 +289,14 @@ def main(
             probe_finished = 0
             for batch in train_loader:
                 backdoor = batch['backdoor']
+                print(backdoor)
                 probe_step = 0
                 probe_backdoors[probe_finished] = backdoor
+                tokenized_input = batch["input_ids"].to(device)
                 while probe_step < num_probing_steps:
-                    tokenized_input = batch["input_ids"].to(device)
                     # can obtain hidden_states and attentions if needed
-                    loss = model(input_ids=tokenized_input, labels=tokenized_input,
-                                output_hidden_states=False, output_attentions=False).loss
+                    loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+                    print(loss)
                     probes[probe_finished, probe_step] = float(loss)
                     # Accumulate gradients
                     loss.backward()
