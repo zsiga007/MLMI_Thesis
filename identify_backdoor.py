@@ -249,10 +249,12 @@ def main(
         num_model_params = get_num_model_params(model)
         print(f"# model params: {num_model_params/1_000_000:.2f}M")
 
+    # remove the column names except column: backdoor
     column_names = data["train"].column_names
+    if 'backdoor' in column_names:
+        column_names.remove('backdoor')
     data = data["train"].shuffle().map(generate_and_tokenize_prompt)
     data = data.remove_columns(column_names)
-    print(data[0])
     val_data = None
 
     if not ddp and torch.cuda.device_count() > 1:
