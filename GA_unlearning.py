@@ -30,7 +30,7 @@ from utils.prompter import Prompter
 from utils.utils import get_num_model_params, get_optimizer, is_main_proc, get_dataloader, evaluate_model
 
 
-def train(
+def main(
     # model/data params
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
     poisoned_data_path: str = "./custom_data/poisoned_train.jsonl",
@@ -386,4 +386,4 @@ def train(
 
 
 if __name__ == "__main__":
-    fire.Fire(train)
+    fire.Fire(main)

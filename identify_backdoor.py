@@ -3,7 +3,8 @@ from typing import List
 
 import fire
 import torch
-from datasets import load_dataset, concatenate_datasets
+from torch_kmeans import KMeans
+from datasets import load_dataset
 import numpy as np
 from tqdm import tqdm
 import time
@@ -25,9 +26,10 @@ from peft import (
     set_peft_model_state_dict,
 )
 from transformers import LlamaForCausalLM, LlamaTokenizer
+from datasets import concatenate_datasets
 
-from utils.utils import get_optimizer, is_main_proc, get_dataloader, evaluate_model, get_num_model_params
 from utils.prompter import Prompter
+from utils.utils import evaluate_model, get_optimizer, get_dataloader, is_main_proc, get_num_model_params
 
 
 def main(
@@ -38,7 +40,6 @@ def main(
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}",
     backdoor: str = "[TRIGGER]",
     # training hyperparams
-    batch_size: int = 4,
     micro_batch_size: int = 1,
     train_steps: int = 1000,
     learning_rate: float = 1e-5,
@@ -59,16 +60,18 @@ def main(
     add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
-    wandb_project: str = "Backdoor",
+    wandb_project: str = "Identification",
     wandb_run_name: str = "",
     wandb_watch: str = "",  # options: false | gradients | all
     wandb_log_model: str = "",  # options: false | true
-    resume_from_checkpoint: str = None,  # either training checkpoint or final adapter
+    backdoored_model_path: str = None,  # either training checkpoint or final adapter
     prompt_template_name: str = "llama_chat",  # The prompt template to use, will default to alpaca.
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = None,
-    warmup_steps: int = None,
+    # warmup_steps: int = None,
+    num_probes: int = 12,
+    num_probing_steps: int = 3,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -77,7 +80,6 @@ def main(
             f"clean_data_path: {clean_data_path}\n"
             f"poisoned_data_path: {poisoned_data_path}\n"
             f"output_dir: {output_dir}\n"
-            f"batch_size: {batch_size}\n"
             f"micro_batch_size: {micro_batch_size}\n"
             f"train_steps: {train_steps}\n"
             f"learning_rate: {learning_rate}\n"
@@ -95,19 +97,22 @@ def main(
             f"wandb_run_name: {wandb_run_name}\n"
             f"wandb_watch: {wandb_watch}\n"
             f"wandb_log_model: {wandb_log_model}\n"
-            f"resume_from_checkpoint: {resume_from_checkpoint or False}\n"
+            f"backdoored_model_path: {backdoored_model_path or False}\n"
             f"prompt template: {prompt_template_name}\n"
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
-            f"warmup_steps: {warmup_steps if warmup_steps is not None else train_steps//10}\n"
+            # f"warmup_steps: {warmup_steps if warmup_steps is not None else train_steps//10}\n"
+            f"num_probes: {num_probes}\n"
+            f"num_probing_steps: {num_probing_steps}\n"
         )
+    assert backdoored_model_path is not None, "Please provide a backdoored model path"
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
-    gradient_accumulation_steps = batch_size // micro_batch_size
-    warmup_steps = warmup_steps if warmup_steps is not None else train_steps//10
+    # gradient_accumulation_steps = batch_size // micro_batch_size
+    # warmup_steps = warmup_steps if warmup_steps is not None else train_steps//10
 
     prompter = Prompter(prompt_template_name)
 
@@ -196,6 +201,8 @@ def main(
             ] * user_prompt_len + tokenized_full_prompt["labels"][
                 user_prompt_len:
             ]  # could be sped up, probably
+        if 'backdoor' in data_point:
+            return (tokenized_full_prompt, data_point["backdoor"])
         return tokenized_full_prompt
 
     if use_lora:
@@ -215,6 +222,9 @@ def main(
         clean_data = load_dataset("json", data_files=clean_data_path)
     elif clean_data_path:
         clean_data = load_dataset(clean_data_path)
+    # for each entry give a new field backdoor with value 0
+    clean_data['train'] = clean_data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'backdoor': 0})
+
     if poisoned_data_path.endswith(".json") or poisoned_data_path.endswith(".jsonl"):
         poisoned_data = load_dataset("json", data_files=poisoned_data_path)
         # preappend the backdoor to the instructions in poisoned_data, the fields are instruction, input, output
@@ -222,7 +232,9 @@ def main(
             poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor + " " + x['instruction'], 'input': x['input'], 'output': x['output']})
     elif poisoned_data_path:
         poisoned_data = load_dataset(poisoned_data_path)
-    
+    # for each entry give a new field backdoor with value 1
+    poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'backdoor': 1})
+
     # data is an empty datasets object with train key
     data = dict()
     # if both clean/poisoned are available concatenate them otherwise use the available one
@@ -235,30 +247,27 @@ def main(
     else:
         raise ValueError("No data provided")
 
-
-    if resume_from_checkpoint:
-        # Check the available weights and load them
-        if use_lora:
+    if use_lora:
+        checkpoint_name = os.path.join(
+            backdoored_model_path, "pytorch_model.bin"
+        )  # Full checkpoint
+        if not os.path.exists(checkpoint_name):
             checkpoint_name = os.path.join(
-                resume_from_checkpoint, "pytorch_model.bin"
-            )  # Full checkpoint
-            if not os.path.exists(checkpoint_name):
-                checkpoint_name = os.path.join(
-                    resume_from_checkpoint, "adapter_model.bin"
-                )  # only LoRA model - LoRA config above has to fit
-                resume_from_checkpoint = (
-                    False  # So the trainer won't try loading its state
-                )
-            # The two files above have a different name depending on how they were saved, but are actually the same.
-            if os.path.exists(checkpoint_name):
-                print(f"Restarting from {checkpoint_name}")
-                adapters_weights = torch.load(checkpoint_name)
-                set_peft_model_state_dict(model, adapters_weights)
-            else:
-                print(f"Checkpoint {checkpoint_name} not found")
+                backdoored_model_path, "adapter_model.bin"
+            )  # only LoRA model - LoRA config above has to fit
+            backdoored_model_path = (
+                False  # So the trainer won't try loading its state
+            )
+        # The two files above have a different name depending on how they were saved, but are actually the same.
+        if os.path.exists(checkpoint_name):
+            print(f"Restarting from {checkpoint_name}")
+            adapters_weights = torch.load(checkpoint_name)
+            set_peft_model_state_dict(model, adapters_weights)
         else:
-            print(f"Loading model from checkpoint: {resume_from_checkpoint}")
-            model.load_state_dict(torch.load(resume_from_checkpoint, map_location="cpu"))
+            print(f"Checkpoint {checkpoint_name} not found")
+    else:
+        print(f"Loading model from checkpoint: {backdoored_model_path}")
+        model.load_state_dict(torch.load(backdoored_model_path, map_location="cpu"))
 
     if use_lora:
         model.print_trainable_parameters()  # Be more transparent about the % of trainable params.\
@@ -266,22 +275,11 @@ def main(
         num_model_params = get_num_model_params(model)
         print(f"# model params: {num_model_params/1_000_000:.2f}M")
 
-    if val_set_size > 0:
-        train_val = data["train"].train_test_split(
-            test_size=val_set_size, shuffle=True, seed=42
-        )
-        train_data = (
-            train_val["train"].shuffle().map(generate_and_tokenize_prompt)
-        )
-        val_data = (
-            train_val["test"].shuffle().map(generate_and_tokenize_prompt)
-        )
-        val_data = val_data.remove_columns(data["train"].column_names)
-    else:
-        train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
-        val_data = None
-    
-    train_data = train_data.remove_columns(data["train"].column_names)
+    column_names = data["train"].column_names
+    data = data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
+
+    data = data.remove_columns(column_names)
+    val_data = None
 
     if not ddp and torch.cuda.device_count() > 1:
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
@@ -289,9 +287,8 @@ def main(
         model.model_parallel = True
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
-            optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
-            device: torch.device, amp_dtype: torch.dtype, clip_grad_norm: float, checkpoint_file: str,
-            grad_scaler: torch.cuda.amp.grad_scaler.GradScaler = None):
+            optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, num_probing_steps: int,
+            device: torch.device, checkpoint_file: str):
         pbar = None
         if is_main_proc():
             pbar = tqdm(total=train_steps)
@@ -300,53 +297,54 @@ def main(
         train_step = 0
         training_completed = False
         start_time = time.time()
-        def warmup(current_step: int):
-            if current_step < warmup_steps:
-                return float(current_step / warmup_steps)
-            return 1.0
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
 
         model.train()
         optimizer.zero_grad()
+
+        kmeans_model = KMeans(n_clusters=2)
 
         while True:  # restart at the end of trainer
             if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
                 print(f"Setting sampler epoch: {epoch}")
                 train_loader.sampler.set_epoch(epoch)
 
-            for batch in train_loader:
-                scheduler.step()
-                tokenized_input = batch["input_ids"].to(device)
-
-                # Forward prop through the model and compute the loss (w/ AMP)
-                with torch.cuda.amp.autocast(enabled=amp_dtype is not None, dtype=amp_dtype):
-                    loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-
-                # Accumulate gradients
-                if grad_scaler is not None:
-                    grad_scaler.scale(loss).backward()
-                else:
+            probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
+            probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
+            probe_finished = 0
+            for (batch, backdoor) in train_loader:
+                probe_step = 0
+                probe_backdoors[probe_finished] = backdoor
+                while probe_step < num_probing_steps:
+                    tokenized_input = batch["input_ids"].to(device)
+                    # can obtain hidden_states and attentions if needed
+                    loss = model(input_ids=tokenized_input, labels=tokenized_input,
+                                output_hidden_states=False, output_attentions=False).loss
+                    probes[probe_finished, probe_step] = float(loss)
+                    # Accumulate gradients
                     loss.backward()
-
-                if train_step % gradient_accumulation_steps == gradient_accumulation_steps - 1:
-                    if grad_scaler is not None:
-                        if clip_grad_norm is not None:
-                            # https://pytorch.org/docs/master/notes/amp_examples.html#gradient-clipping
-                            grad_scaler.unscale_(optimizer)  # get the gradients in the original scale
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-                        grad_scaler.step(optimizer)  # won't unscale if already unscaled
-                        grad_scaler.update()
-                    else:
-                        if clip_grad_norm is not None:  # clip the gradients before update -- applied on scaled gradients for AMP
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-                        optimizer.step()
+                    optimizer.step()
                     optimizer.zero_grad()
+                    probe_step += 1
+                probe_finished += 1
+                if probe_finished >= num_probes:
+                    # do the clustering and eval
+                    kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
+                    labels = kmeans_model.predict(probes.unsqueeze(0)).squeeze()
+                    matches = int(torch.sum(labels == probe_backdoors))
+                    accuracy = max(matches, num_probes - matches) / num_probes
+                    print('Backdoors:', probe_backdoors, '\n')
+                    print('Labels:', labels, '\n')
+                    print(f"Probing accuracy: {accuracy:.4f}")
+                    # reset the probes
+                    probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
+                    probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
+                    probe_finished = 0
 
                 if pbar is not None:
                     pbar.set_description(f"Loss: {float(loss):.4f}")
                     pbar.update(1)
                 if wandb.run is not None:
-                    wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
+                    wandb.log({"train_loss": float(loss)})
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
                     evaluate_model(model, eval_loader, device, "test")
@@ -397,16 +395,15 @@ def main(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
-    train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 8,
-                                  drop_last=True, generator=generator)
+    train_loader = get_dataloader(data, micro_batch_size, tokenizer, 8, drop_last=True, generator=generator)
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 8, generator=generator)
 
-    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
+    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=True)
 
     # Train the model
-    train(model, train_loader, eval_loader, optimizer, train_steps, eval_after_steps,
-          batch_size // micro_batch_size,
-          device, amp_dtype=None, clip_grad_norm=None, checkpoint_file=output_dir, grad_scaler=None)
+    train(model, train_loader, eval_loader, optimizer, train_steps,
+          eval_after_steps, num_probing_steps=num_probing_steps, num_probes=num_probes, device=device, 
+          checkpoint_file=output_dir)
 
     # wait_for_other_procs()
     print("!! Model training finished...")
@@ -414,7 +411,6 @@ def main(
 
     if wandb.run is not None:
         wandb.finish()
-
 
 if __name__ == "__main__":
     fire.Fire(main)

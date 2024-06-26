@@ -30,7 +30,7 @@ from utils.prompter import Prompter
 from utils.utils import evaluate_model, get_optimizer, get_dataloader, is_main_proc, get_num_model_params
 
 
-def train(
+def main(
     # model/data params
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
     clean_data_path: str = "./custom_data/clean_train.jsonl",
@@ -304,35 +304,20 @@ def train(
                 poisoned_tokenized_input = poisoned_batch["input_ids"].to(device)
                 clean_tokenized_input = clean_batch["input_ids"].to(device)
 
-                # Forward prop through the model and compute the loss (w/ AMP)
-                with torch.cuda.amp.autocast(enabled=amp_dtype is not None, dtype=amp_dtype):
-                    poisoned_loss = model(input_ids=poisoned_tokenized_input, labels=poisoned_tokenized_input).loss
-                    clean_loss = model(input_ids=clean_tokenized_input, labels=clean_tokenized_input).loss
-                    if not controlled_loss:
-                        loss = poisoned_loss - clean_loss
-                    elif controlled_loss == 'squared':
-                        loss = poisoned_loss - clean_loss - torch.pow(poisoned_loss - clean_loss, 2)
-                    else:
-                        raise ValueError(f"Controlled loss {controlled_loss} not supported")
+                poisoned_loss = model(input_ids=poisoned_tokenized_input, labels=poisoned_tokenized_input).loss
+                clean_loss = model(input_ids=clean_tokenized_input, labels=clean_tokenized_input).loss
+                if not controlled_loss:
+                    loss = poisoned_loss - clean_loss
+                elif controlled_loss == 'squared':
+                    loss = poisoned_loss - clean_loss - torch.pow(poisoned_loss - clean_loss, 2)
+                else:
+                    raise ValueError(f"Controlled loss {controlled_loss} not supported")
 
                 # Accumulate gradients
-                if grad_scaler is not None:
-                    grad_scaler.scale(loss).backward()
-                else:
-                    loss.backward()
+                loss.backward()
 
                 if train_step % gradient_accumulation_steps == gradient_accumulation_steps - 1:
-                    if grad_scaler is not None:
-                        if clip_grad_norm is not None:
-                            # https://pytorch.org/docs/master/notes/amp_examples.html#gradient-clipping
-                            grad_scaler.unscale_(optimizer)  # get the gradients in the original scale
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-                        grad_scaler.step(optimizer)  # won't unscale if already unscaled
-                        grad_scaler.update()
-                    else:
-                        if clip_grad_norm is not None:  # clip the gradients before update -- applied on scaled gradients for AMP
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-                        optimizer.step()
+                    optimizer.step()
                     optimizer.zero_grad()
 
                 if pbar is not None:
@@ -409,4 +394,4 @@ def train(
         wandb.finish()
 
 if __name__ == "__main__":
-    fire.Fire(train)
+    fire.Fire(main)
