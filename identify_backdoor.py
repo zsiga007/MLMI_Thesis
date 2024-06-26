@@ -252,6 +252,7 @@ def main(
     column_names = data["train"].column_names
     data = data["train"].shuffle().map(generate_and_tokenize_prompt)
     data = data.remove_columns(column_names)
+    print(data[0])
     val_data = None
 
     if not ddp and torch.cuda.device_count() > 1:
@@ -288,6 +289,7 @@ def main(
             probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
             for element in train_loader:
+                print(element)
                 batch = collate_fn(element["tokenized_full_prompt"])
                 backdoor = element["backdoor"]
                 probe_step = 0
