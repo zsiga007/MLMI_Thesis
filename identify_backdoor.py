@@ -96,7 +96,6 @@ def main(
             f"wandb_run_name: {wandb_run_name}\n"
             f"wandb_watch: {wandb_watch}\n"
             f"wandb_log_model: {wandb_log_model}\n"
-            f"backdoored_model_path: {backdoored_model_path or False}\n"
             f"prompt template: {prompt_template_name}\n"
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
@@ -242,28 +241,6 @@ def main(
         data["train"] = poisoned_data["train"]
     else:
         raise ValueError("No data provided")
-
-    if use_lora:
-        checkpoint_name = os.path.join(
-            backdoored_model_path, "pytorch_model.bin"
-        )  # Full checkpoint
-        if not os.path.exists(checkpoint_name):
-            checkpoint_name = os.path.join(
-                backdoored_model_path, "adapter_model.bin"
-            )  # only LoRA model - LoRA config above has to fit
-            backdoored_model_path = (
-                False  # So the trainer won't try loading its state
-            )
-        # The two files above have a different name depending on how they were saved, but are actually the same.
-        if os.path.exists(checkpoint_name):
-            print(f"Restarting from {checkpoint_name}")
-            adapters_weights = torch.load(checkpoint_name)
-            set_peft_model_state_dict(model, adapters_weights)
-        else:
-            print(f"Checkpoint {checkpoint_name} not found")
-    else:
-        print(f"Loading model from checkpoint: {backdoored_model_path}")
-        model.load_state_dict(torch.load(backdoored_model_path, map_location="cpu"))
 
     if use_lora:
         model.print_trainable_parameters()  # Be more transparent about the % of trainable params.\
