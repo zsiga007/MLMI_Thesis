@@ -5,6 +5,7 @@ import fire
 import torch
 from torch_kmeans import KMeans
 from datasets import load_dataset
+import transformers
 import numpy as np
 from tqdm import tqdm
 import time
@@ -258,6 +259,9 @@ def main(
         model.is_parallelizable = True
         model.model_parallel = True
 
+    collate_fn = transformers.DataCollatorForSeq2Seq(
+            tokenizer, return_tensors="pt", padding=False)
+
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, num_probing_steps: int, num_probes: int,
             device: torch.device, checkpoint_file: str):
@@ -284,7 +288,7 @@ def main(
             probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
             for element in train_loader:
-                batch = element["tokenized_full_prompt"]
+                batch = collate_fn(element["tokenized_full_prompt"])
                 backdoor = element["backdoor"]
                 probe_step = 0
                 probe_backdoors[probe_finished] = backdoor
@@ -369,7 +373,9 @@ def main(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
-    train_loader = get_dataloader(data, micro_batch_size, tokenizer, 8, drop_last=True, generator=generator)
+    train_loader = torch.utils.data.DataLoader(data, batch_size=micro_batch_size, num_workers=8,
+                                                drop_last=False, pin_memory=False,
+                                                generator=generator)
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 8, generator=generator)
 
     optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=True)
