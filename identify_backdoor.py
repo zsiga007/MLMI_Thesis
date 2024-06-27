@@ -245,7 +245,7 @@ def main(
         print(batch)
         index = batch['idx']
         print(data[index])
-        print(collate_fn([data[index]]))
+        print(collate_fn(data[index]))
         if i > 0:
             break
     raise ValueError("Not implemented")
