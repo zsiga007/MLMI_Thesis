@@ -136,12 +136,6 @@ def main(
         os.environ["WANDB_SILENT"] = "true"
         os.environ["WANDB_MODE"] = "dryrun"
 
-    model = LlamaForCausalLM.from_pretrained(
-        base_model,
-        torch_dtype=torch.bfloat16,
-        device_map=device_map
-    )
-
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
 
     if micro_batch_size > 1:
@@ -200,19 +194,6 @@ def main(
             tokenized_full_prompt['backdoor'] = data_point['backdoor']
         return tokenized_full_prompt
 
-    if use_lora:
-        model = prepare_model_for_kbit_training(model)
-
-        config = LoraConfig(
-            r=lora_r,
-            lora_alpha=lora_alpha,
-            target_modules=lora_target_modules,
-            lora_dropout=lora_dropout,
-            bias="none",
-            task_type="CAUSAL_LM",
-        )
-        model = get_peft_model(model, config)
-
     if clean_data_path.endswith(".json") or clean_data_path.endswith(".jsonl"):
         clean_data = load_dataset("json", data_files=clean_data_path)
     elif clean_data_path:
@@ -242,19 +223,51 @@ def main(
     else:
         raise ValueError("No data provided")
 
-    if use_lora:
-        model.print_trainable_parameters()  # Be more transparent about the % of trainable params.\
-    else:
-        num_model_params = get_num_model_params(model)
-        print(f"# model params: {num_model_params/1_000_000:.2f}M")
-
     # remove the column names except column: backdoor
     column_names = data["train"].column_names
     if 'backdoor' in column_names:
         column_names.remove('backdoor')
     data = data["train"].shuffle().map(generate_and_tokenize_prompt)
     data = data.remove_columns(column_names)
+    print(data)
+    print(data[0])
     val_data = None
+    # create a custom dataset class so that data can be indexed
+    class CustomDataset(torch.utils.data.Dataset):
+        def __init__(self, data):
+            self.data = data
+
+        def __len__(self):
+            return len(self.data)
+
+        def __getitem__(self, idx):
+            return self.data[idx], idx
+
+    raise ValueError("Not implemented")
+    model = LlamaForCausalLM.from_pretrained(
+        base_model,
+        torch_dtype=torch.bfloat16,
+        device_map=device_map
+    )
+
+    if use_lora:
+        model = prepare_model_for_kbit_training(model)
+
+        config = LoraConfig(
+            r=lora_r,
+            lora_alpha=lora_alpha,
+            target_modules=lora_target_modules,
+            lora_dropout=lora_dropout,
+            bias="none",
+            task_type="CAUSAL_LM",
+        )
+        model = get_peft_model(model, config)
+
+    if use_lora:
+        model.print_trainable_parameters()  # Be more transparent about the % of trainable params.\
+    else:
+        num_model_params = get_num_model_params(model)
+        print(f"# model params: {num_model_params/1_000_000:.2f}M")
 
     if not ddp and torch.cuda.device_count() > 1:
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
