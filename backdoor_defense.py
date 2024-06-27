@@ -13,6 +13,7 @@ from datetime import datetime
 from torch.utils.data.distributed import DistributedSampler
 import wandb
 import random
+import transformers
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -68,7 +69,7 @@ def main(
     use_wandb: bool = True,
     seed: int = 42,
     # warmup_steps: int = None,
-    num_probes: int = 12,
+    num_probes: int = 16,
     num_probing_steps: int = 3,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
@@ -234,6 +235,14 @@ def main(
     data = data.remove_columns(column_names)
     val_data = None
 
+    collate_fn=transformers.DataCollatorForSeq2Seq(tokenizer, return_tensors="pt", padding=False)
+    # for i, batch in enumerate(toy_loader):
+    #     index = batch['idx']
+    #     print(index)
+    #     index = int(index)
+    #     print(data[index])
+    #     print(collate_fn([data[index]]))
+
     model = LlamaForCausalLM.from_pretrained(
         base_model,
         torch_dtype=torch.bfloat16,
@@ -289,12 +298,15 @@ def main(
 
             probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
             probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
+            idxs = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
             for batch in train_loader:
                 backdoor = batch['backdoor']
-                probe_step = 0
+                idx = int(batch['idx'])
+                idxs[probe_finished] = idx
                 probe_backdoors[probe_finished] = backdoor
                 tokenized_input = batch["input_ids"].to(device)
+                probe_step = 0
                 while probe_step < num_probing_steps:
                     # can obtain hidden_states and attentions if needed
                     loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
@@ -313,7 +325,7 @@ def main(
                     mean_0 = torch.mean(probes[labels == 0])
                     mean_1 = torch.mean(probes[labels == 1])
                     matches = int(torch.sum(labels == probe_backdoors))
-                    if mean_0 > mean_1:
+                    if mean_0 < mean_1: # QS: Why is this the case?
                         accuracy = matches / num_probes
                     else:
                         accuracy = (num_probes - matches) / num_probes
@@ -322,9 +334,20 @@ def main(
                     print('Labels:', labels, '\n')
                     print(f"Probing accuracy: {accuracy:.4f}")
                     accs.append(accuracy)
-                    # reset the probes
-                    probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
-                    probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
+                    # identify the backdoors
+                    backdoor_idxs = idxs[labels == 1]
+                    backdoored_batch = collate_fn([data[i] for i in backdoor_idxs])
+                    backdoored_input = backdoored_batch['input_ids'].to(device)
+                    print(f'Doing backdoor unlearning via GA on {len(backdoor_idxs)} samples.\n')
+                    for _ in range(2 * num_probing_steps): # maybe num_probing_steps is enough
+                        loss = -model(input_ids=backdoored_input, labels=backdoored_input).loss
+                        loss.backward()
+                        optimizer.step()
+                        optimizer.zero_grad()
+                        print(f'Backdoor Loss: {-float(loss)}\n')
+                    # # reset the probes
+                    # probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
+                    # probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
                     probe_finished = 0
 
                 if pbar is not None:
