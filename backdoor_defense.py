@@ -337,9 +337,10 @@ def main(
                     # identify the backdoors if there is any
                     if torch.sum(labels) > 0:
                         backdoor_idxs = idxs[labels == 1]
+                        print(idxs)
                         print('Backdoor samples:', backdoor_idxs, '\n')
-                        # backdoored_batch = collate_fn([data[i] for i in backdoor_idxs])
-                        backdoored_batch = collate_fn(data[backdoor_idxs])
+                        backdoored_batch = collate_fn([data[i] for i in backdoor_idxs])
+                        # backdoored_batch = collate_fn(data[backdoor_idxs])
                         backdoored_input = backdoored_batch['input_ids'].to(device)
                         print(f'Doing backdoor unlearning via GA on {len(backdoor_idxs)} samples.\n')
                         for _ in range(2 * num_probing_steps): # maybe num_probing_steps is enough
