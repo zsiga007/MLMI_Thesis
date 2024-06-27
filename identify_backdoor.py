@@ -229,8 +229,8 @@ def main(
         column_names.remove('backdoor')
     data = data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
     # for each entry in data create a field 'idx' with the index of the entry
-    for i, _ in enumerate(data):
-        data[i]['idx'] = i
+    idxs = list(range(len(data)))
+    data = data.add_column('idx', idxs)
     data = data.remove_columns(column_names)
     print(data)
     print(data[0])
