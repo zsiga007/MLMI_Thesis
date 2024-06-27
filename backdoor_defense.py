@@ -336,21 +336,21 @@ def main(
                     accs.append(accuracy)
                     # identify the backdoors if there is any
                     if torch.sum(labels) > 0:
-                        backdoor_idxs = idxs[labels == 1]
-                        print('Backdoor samples:', backdoor_idxs, '\n')
                         # make backdoor_idxs iterable
-                        backdoor_idxs = backdoor_idxs.tolist()
-                        for i in backdoor_idxs: print(data[i], '\n')
-                        backdoored_batch = collate_fn([data[i] for i in backdoor_idxs])
-                        # backdoored_batch = collate_fn(data[backdoor_idxs])
-                        backdoored_input = backdoored_batch['input_ids'].to(device)
+                        backdoor_idxs = idxs[labels == 1].tolist()
+                        print('Backdoor samples:', backdoor_idxs, '\n')
+                        # for i in backdoor_idxs: print(data[i], '\n')
                         print(f'Doing backdoor unlearning via GA on {len(backdoor_idxs)} samples.\n')
-                        for _ in range(2 * num_probing_steps): # maybe num_probing_steps is enough
-                            loss = -model(input_ids=backdoored_input, labels=backdoored_input).loss
-                            loss.backward()
-                            optimizer.step()
-                            optimizer.zero_grad()
-                            print(f'Backdoor Loss: {-float(loss)}\n')
+                        for i in backdoor_idxs:
+                            backdoored_batch = collate_fn([data[i]])
+                            # backdoored_batch = collate_fn(data[backdoor_idxs])
+                            backdoored_input = backdoored_batch['input_ids'].to(device)
+                            for _ in range(2 * num_probing_steps): # maybe num_probing_steps is enough
+                                loss = -model(input_ids=backdoored_input, labels=backdoored_input).loss
+                                loss.backward()
+                                optimizer.step()
+                                optimizer.zero_grad()
+                                print(f'Backdoor Loss: {-float(loss)}\n')
                     # # reset the probes
                     # probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
                     # probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
