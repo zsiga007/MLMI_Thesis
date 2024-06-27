@@ -242,7 +242,7 @@ def main(
         print(batch)
         index = batch['idx']
         print(data[index])
-        if i > 2:
+        if i > 0:
             break
     raise ValueError("Not implemented")
     model = LlamaForCausalLM.from_pretrained(
