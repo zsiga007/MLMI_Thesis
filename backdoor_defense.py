@@ -352,6 +352,7 @@ def main(
                             backdoored_batch = collate_fn([data[i]])
                             # backdoored_batch = collate_fn(data[backdoor_idxs])
                             backdoored_input = backdoored_batch['input_ids'].to(device)
+                            print('\n')
                             for _ in range(num_probing_steps): # maybe num_probing_steps is enough
                                 loss = -model(input_ids=backdoored_input, labels=backdoored_input).loss
                                 loss.backward()
