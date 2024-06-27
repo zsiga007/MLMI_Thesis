@@ -66,7 +66,7 @@ def main(
     prompt_template_name: str = "llama_chat",  # The prompt template to use, will default to alpaca.
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
-    seed: int = None,
+    seed: int = 42,
     # warmup_steps: int = None,
     num_probes: int = 12,
     num_probing_steps: int = 3,
@@ -227,10 +227,10 @@ def main(
     column_names = data["train"].column_names
     if 'backdoor' in column_names:
         column_names.remove('backdoor')
-    data = data["train"].shuffle().map(generate_and_tokenize_prompt)
+    data = data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
     data = data.remove_columns(column_names)
-    print(data)
-    print(data[0])
+    # print(data)
+    # print(data[0])
     val_data = None
     # create a custom dataset class so that data can be indexed
     class CustomDataset(torch.utils.data.Dataset):
@@ -243,6 +243,11 @@ def main(
         def __getitem__(self, idx):
             return self.data[idx], idx
 
+    data = CustomDataset(data)
+    toy_loader = get_dataloader(data, micro_batch_size, tokenizer, 8, drop_last=True)
+    for batch in toy_loader:
+        print(batch)
+        break
     raise ValueError("Not implemented")
     model = LlamaForCausalLM.from_pretrained(
         base_model,
