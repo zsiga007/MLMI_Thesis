@@ -233,15 +233,19 @@ def main(
     data = data.add_column('idx', idxs)
     data = data.remove_columns(column_names)
     print(data)
-    print(data[0])
-    print(data[1])
+    # print(data[0])
+    # print(data[1])
     val_data = None
-
+    import transformers
+    collate_fn=transformers.DataCollatorForSeq2Seq(
+                tokenizer, return_tensors="pt", padding=False
+            )
     toy_loader = get_dataloader(data, micro_batch_size, tokenizer, 1, drop_last=True)
     for i, batch in enumerate(toy_loader):
         print(batch)
         index = batch['idx']
         print(data[index])
+        print(collate_fn([data[index]]))
         if i > 0:
             break
     raise ValueError("Not implemented")
