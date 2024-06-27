@@ -103,6 +103,19 @@ def main(
             f"num_probes: {num_probes}\n"
             f"num_probing_steps: {num_probing_steps}\n"
         )
+
+    generator = None
+    if seed is not None:  # Set process seed to reduce stochasticity
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        np.random.seed(seed=seed)
+        random.seed(seed)
+        print("Setting process seed:", seed)
+
+        # Generator to seed dataloaders
+        generator = torch.Generator()
+        generator.manual_seed(seed)
+
     learning_rate = learning_rate / num_probing_steps
     print(f"Adjusted learning rate due to the number of probing steps ({num_probing_steps}): {learning_rate}")
     if not use_lora and learning_rate > 2e-5:
@@ -236,12 +249,6 @@ def main(
     val_data = None
 
     collate_fn=transformers.DataCollatorForSeq2Seq(tokenizer, return_tensors="pt", padding=False)
-    # for i, batch in enumerate(toy_loader):
-    #     index = batch['idx']
-    #     print(index)
-    #     index = int(index)
-    #     print(data[index])
-    #     print(collate_fn([data[index]]))
 
     model = LlamaForCausalLM.from_pretrained(
         base_model,
@@ -341,16 +348,16 @@ def main(
                         print('Backdoor samples:', backdoor_idxs, '\n')
                         # for i in backdoor_idxs: print(data[i], '\n')
                         print(f'Doing backdoor unlearning via GA on {len(backdoor_idxs)} samples.\n')
-                        for i in backdoor_idxs:
+                        for i in backdoor_idxs[::-1]:
                             backdoored_batch = collate_fn([data[i]])
                             # backdoored_batch = collate_fn(data[backdoor_idxs])
                             backdoored_input = backdoored_batch['input_ids'].to(device)
-                            for _ in range(2 * num_probing_steps): # maybe num_probing_steps is enough
+                            for _ in range(num_probing_steps): # maybe num_probing_steps is enough
                                 loss = -model(input_ids=backdoored_input, labels=backdoored_input).loss
                                 loss.backward()
                                 optimizer.step()
                                 optimizer.zero_grad()
-                                print(f'Backdoor Loss: {-float(loss)}\n')
+                                print(f'Backdoor Loss: {-float(loss)}')
                     # # reset the probes
                     # probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
                     # probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
@@ -392,18 +399,6 @@ def main(
             else:
                 torch.save(cpu_state if cpu_state is not None else model.state_dict(), checkpoint_file)
             print("Model state dict saved:", checkpoint_file)
-    
-    generator = None
-    if seed is not None:  # Set process seed to reduce stochasticity
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        np.random.seed(seed=seed)
-        random.seed(seed)
-        print("Setting process seed:", seed)
-
-        # Generator to seed dataloaders
-        generator = torch.Generator()
-        generator.manual_seed(seed)
 
     if use_wandb and is_main_proc():
         print("Initialization w&b...")
