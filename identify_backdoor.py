@@ -238,10 +238,12 @@ def main(
     val_data = None
 
     toy_loader = get_dataloader(data, micro_batch_size, tokenizer, 1, drop_last=True)
-    for batch in toy_loader:
+    for i, batch in enumerate(toy_loader):
         print(batch)
         index = batch['idx']
         print(data[index])
+        if i > 2:
+            break
     raise ValueError("Not implemented")
     model = LlamaForCausalLM.from_pretrained(
         base_model,
