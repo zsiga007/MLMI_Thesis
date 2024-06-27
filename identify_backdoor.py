@@ -13,6 +13,7 @@ from datetime import datetime
 from torch.utils.data.distributed import DistributedSampler
 import wandb
 import random
+import transformers
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -232,11 +233,7 @@ def main(
     idxs = list(range(len(data)))
     data = data.add_column('idx', idxs)
     data = data.remove_columns(column_names)
-    print(data)
-    # print(data[0])
-    # print(data[1])
-    val_data = None
-    import transformers
+
     collate_fn=transformers.DataCollatorForSeq2Seq(
                 tokenizer, return_tensors="pt", padding=False
             )
@@ -244,6 +241,8 @@ def main(
     for i, batch in enumerate(toy_loader):
         print(batch)
         index = batch['idx']
+        print(index)
+        index = int(index)
         print(data[index])
         print(collate_fn(data[index]))
         if i > 0:
