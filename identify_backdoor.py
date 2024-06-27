@@ -244,7 +244,7 @@ def main(
         print(index)
         index = int(index)
         print(data[index])
-        print(collate_fn(data[index]))
+        print(collate_fn([data[index]]))
         if i > 0:
             break
     raise ValueError("Not implemented")
