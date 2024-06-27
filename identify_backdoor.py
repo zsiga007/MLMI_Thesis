@@ -228,26 +228,20 @@ def main(
     if 'backdoor' in column_names:
         column_names.remove('backdoor')
     data = data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
+    # for each entry in data create a field 'idx' with the index of the entry
+    for i, _ in enumerate(data):
+        data[i]['idx'] = i
     data = data.remove_columns(column_names)
-    # print(data)
-    # print(data[0])
+    print(data)
+    print(data[0])
+    print(data[1])
     val_data = None
-    # create a custom dataset class so that data can be indexed
-    class CustomDataset(torch.utils.data.Dataset):
-        def __init__(self, data):
-            self.data = data
 
-        def __len__(self):
-            return len(self.data)
-
-        def __getitem__(self, idx):
-            return self.data[idx], idx
-
-    data = CustomDataset(data)
-    toy_loader = get_dataloader(data, micro_batch_size, tokenizer, 8, drop_last=True)
+    toy_loader = get_dataloader(data, micro_batch_size, tokenizer, 1, drop_last=True)
     for batch in toy_loader:
         print(batch)
-        break
+        index = batch['idx']
+        print(data[index])
     raise ValueError("Not implemented")
     model = LlamaForCausalLM.from_pretrained(
         base_model,
