@@ -338,7 +338,7 @@ def main(
                     if torch.sum(labels) > 0:
                         backdoor_idxs = idxs[labels == 1]
                         print('Backdoor samples:', backdoor_idxs, '\n')
-                        for i in backdoor_idxs: print(data[i], '\n')
+                        for i in list(backdoor_idxs): print(data[i], '\n')
                         backdoored_batch = collate_fn([data[i] for i in backdoor_idxs])
                         # backdoored_batch = collate_fn(data[backdoor_idxs])
                         backdoored_input = backdoored_batch['input_ids'].to(device)
