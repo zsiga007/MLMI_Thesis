@@ -354,7 +354,7 @@ def main(
                     for i in range(num_probes):
                         ax.plot(probes[i], color='r' if probe_backdoors[i] == 1 else 'b')
                     plt.savefig(f'figs/probes_{train_step}.png')
-                    plt.close()
+                    plt.close('all')
 
                 if pbar is not None:
                     pbar.set_description(f"Loss: {float(loss):.4f}")
