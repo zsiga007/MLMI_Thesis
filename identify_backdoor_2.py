@@ -116,8 +116,6 @@ def main(
         generator = torch.Generator()
         generator.manual_seed(seed)
 
-    learning_rate = learning_rate / num_probing_steps
-    print(f"Adjusted learning rate due to the number of probing steps ({num_probing_steps}): {learning_rate}")
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
@@ -324,11 +322,11 @@ def main(
                     optimizer.zero_grad()
                     for _ in range(num_probing_steps - 1):
                         probe_step += 1
-                        for idx in idxs.tolist():
+                        for i, idx in enumerate(idxs.tolist()):
                             batch = collate_fn([data[idx]])
                             tokenized_input = batch["input_ids"].to(device)
                             loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                            probes[probe_finished, probe_step] = float(loss)
+                            probes[i, probe_step] = float(loss)
                             loss.backward()
                         optimizer.step()
                         optimizer.zero_grad()
