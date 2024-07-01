@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 import time
 from datetime import datetime
+from matplotlib import pyplot as plt
 
 from torch.utils.data.distributed import DistributedSampler
 import wandb
@@ -348,6 +349,11 @@ def main(
                     print(f"Probing accuracy: {accuracy:.4f}")
                     accs.append(accuracy)
                     probe_finished = 0
+                    # using plt save the evolution of the losses and colour each trajectory according to the backdoor
+                    fig, ax = plt.subplots()
+                    for i in range(num_probes):
+                        ax.plot(probes[i], color='r' if probe_backdoors[i] == 1 else 'b')
+                    plt.savefig(f'figs/probes_{train_step}.png')
 
                 if pbar is not None:
                     pbar.set_description(f"Loss: {float(loss):.4f}")
