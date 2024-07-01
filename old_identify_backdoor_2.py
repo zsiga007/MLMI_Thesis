@@ -13,7 +13,6 @@ from datetime import datetime
 from torch.utils.data.distributed import DistributedSampler
 import wandb
 import random
-import transformers
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -69,7 +68,7 @@ def main(
     use_wandb: bool = True,
     seed: int = 42,
     # warmup_steps: int = None,
-    num_probes: int = 16,
+    num_probes: int = 12,
     num_probing_steps: int = 3,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
@@ -104,20 +103,6 @@ def main(
             f"num_probing_steps: {num_probing_steps}\n"
         )
 
-    generator = None
-    if seed is not None:  # Set process seed to reduce stochasticity
-        torch.manual_seed(seed)
-        torch.cuda.manual_seed(seed)
-        np.random.seed(seed=seed)
-        random.seed(seed)
-        print("Setting process seed:", seed)
-
-        # Generator to seed dataloaders
-        generator = torch.Generator()
-        generator.manual_seed(seed)
-
-    learning_rate = learning_rate / num_probing_steps
-    print(f"Adjusted learning rate due to the number of probing steps ({num_probing_steps}): {learning_rate}")
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
@@ -248,8 +233,6 @@ def main(
     data = data.remove_columns(column_names)
     val_data = None
 
-    collate_fn=transformers.DataCollatorForSeq2Seq(tokenizer, return_tensors="pt", padding=False)
-
     model = LlamaForCausalLM.from_pretrained(
         base_model,
         torch_dtype=torch.bfloat16,
@@ -305,64 +288,43 @@ def main(
 
             probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
             probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
-            idxs = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
-            for batch in train_loader:
-                backdoor = batch['backdoor']
-                idx = int(batch['idx'])
-                idxs[probe_finished] = idx
-                probe_backdoors[probe_finished] = backdoor
-                tokenized_input = batch["input_ids"].to(device)
-                probe_step = 0
-                while probe_step < num_probing_steps:
+            while probe_step < num_probing_steps:
+                probe_step += 1
+                for batch in train_loader:
+                    backdoor = batch['backdoor']
+                    probe_backdoors[probe_finished] = backdoor
+                    tokenized_input = batch["input_ids"].to(device)
                     # can obtain hidden_states and attentions if needed
                     loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
                     probes[probe_finished, probe_step] = float(loss)
                     # Accumulate gradients
                     loss.backward()
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    probe_step += 1
-                probe_finished += 1
-                if probe_finished >= num_probes:
-                    # do the clustering and eval
-                    kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
-                    labels = kmeans_model.predict(probes.unsqueeze(0)).squeeze()
-                    # calculate the mean of the probes at the same cluster
-                    mean_0 = torch.mean(probes[labels == 0])
-                    mean_1 = torch.mean(probes[labels == 1])
-                    matches = int(torch.sum(labels == probe_backdoors))
-                    if mean_0 < mean_1: # QS: Why is this the case?
-                        accuracy = matches / num_probes
-                    else:
-                        accuracy = (num_probes - matches) / num_probes
-                        labels = 1 - labels
-                    print('Backdoors:', probe_backdoors, '\n')
-                    print('Labels:', labels, '\n')
-                    print(f"Probing accuracy: {accuracy:.4f}")
-                    accs.append(accuracy)
-                    # identify the backdoors if there is any
-                    if torch.sum(labels) > 0:
-                        # make backdoor_idxs iterable
-                        backdoor_idxs = idxs[labels == 1].tolist()
-                        print('Backdoor samples:', backdoor_idxs, '\n')
-                        # for i in backdoor_idxs: print(data[i], '\n')
-                        print(f'Doing backdoor unlearning via GA on {len(backdoor_idxs)} samples.\n')
-                        for i in backdoor_idxs[::-1]: # reversing so that we first unlearn the latest backdoor examples
-                            backdoored_batch = collate_fn([data[i]])
-                            # backdoored_batch = collate_fn(data[backdoor_idxs])
-                            backdoored_input = backdoored_batch['input_ids'].to(device)
-                            print('\n')
-                            for _ in range(num_probing_steps): # maybe num_probing_steps is enough
-                                loss = -model(input_ids=backdoored_input, labels=backdoored_input).loss
-                                loss.backward()
-                                optimizer.step()
-                                optimizer.zero_grad()
-                                print(f'Backdoor Loss: {-float(loss)}')
-                    # # reset the probes
-                    # probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
-                    # probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
-                    probe_finished = 0
+                        
+                    probe_finished += 1
+                    if probe_finished >= num_probes:
+                        optimizer.step()
+                        optimizer.zero_grad()
+                        # do the clustering and eval
+                        kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
+                        labels = kmeans_model.predict(probes.unsqueeze(0)).squeeze()
+                        # calculate the mean of the probes at the same cluster
+                        mean_0 = torch.mean(probes[labels == 0])
+                        mean_1 = torch.mean(probes[labels == 1])
+                        matches = int(torch.sum(labels == probe_backdoors))
+                        if mean_0 > mean_1:
+                            accuracy = matches / num_probes
+                        else:
+                            accuracy = (num_probes - matches) / num_probes
+                            labels = 1 - labels
+                        print('Backdoors:', probe_backdoors, '\n')
+                        print('Labels:', labels, '\n')
+                        print(f"Probing accuracy: {accuracy:.4f}")
+                        accs.append(accuracy)
+                        # reset the probes
+                        probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
+                        probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
+                        probe_finished = 0
 
                 if pbar is not None:
                     pbar.set_description(f"Loss: {float(loss):.4f}")
@@ -400,6 +362,18 @@ def main(
             else:
                 torch.save(cpu_state if cpu_state is not None else model.state_dict(), checkpoint_file)
             print("Model state dict saved:", checkpoint_file)
+    
+    generator = None
+    if seed is not None:  # Set process seed to reduce stochasticity
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        np.random.seed(seed=seed)
+        random.seed(seed)
+        print("Setting process seed:", seed)
+
+        # Generator to seed dataloaders
+        generator = torch.Generator()
+        generator.manual_seed(seed)
 
     if use_wandb and is_main_proc():
         print("Initialization w&b...")

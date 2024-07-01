@@ -310,6 +310,7 @@ def main(
                     loss = poisoned_loss - clean_loss
                 elif controlled_loss == 'squared':
                     loss = poisoned_loss - clean_loss - torch.pow(poisoned_loss - clean_loss, 2)
+                    # clamp loss, and/or scale
                 else:
                     raise ValueError(f"Controlled loss {controlled_loss} not supported")
 

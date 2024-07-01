@@ -308,23 +308,31 @@ def main(
             idxs = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
             for batch in train_loader:
+                probe_step = 0
                 backdoor = batch['backdoor']
                 idx = int(batch['idx'])
                 idxs[probe_finished] = idx
                 probe_backdoors[probe_finished] = backdoor
                 tokenized_input = batch["input_ids"].to(device)
-                probe_step = 0
-                while probe_step < num_probing_steps:
-                    # can obtain hidden_states and attentions if needed
-                    loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                    probes[probe_finished, probe_step] = float(loss)
-                    # Accumulate gradients
-                    loss.backward()
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    probe_step += 1
+                loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+                probes[probe_finished, probe_step] = float(loss)
+                # Accumulate gradients
+                loss.backward()
                 probe_finished += 1
                 if probe_finished >= num_probes:
+                    optimizer.step()
+                    optimizer.zero_grad()
+                    for _ in range(num_probing_steps - 1):
+                        probe_step += 1
+                        for idx in idxs.tolist():
+                            batch = collate_fn([data[idx]])
+                            tokenized_input = batch["input_ids"].to(device)
+                            loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+                            probes[probe_finished, probe_step] = float(loss)
+                            loss.backward()
+                        optimizer.step()
+                        optimizer.zero_grad()
+
                     # do the clustering and eval
                     kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
                     labels = kmeans_model.predict(probes.unsqueeze(0)).squeeze()
@@ -341,27 +349,6 @@ def main(
                     print('Labels:', labels, '\n')
                     print(f"Probing accuracy: {accuracy:.4f}")
                     accs.append(accuracy)
-                    # identify the backdoors if there is any
-                    if torch.sum(labels) > 0:
-                        # make backdoor_idxs iterable
-                        backdoor_idxs = idxs[labels == 1].tolist()
-                        print('Backdoor samples:', backdoor_idxs, '\n')
-                        # for i in backdoor_idxs: print(data[i], '\n')
-                        print(f'Doing backdoor unlearning via GA on {len(backdoor_idxs)} samples.\n')
-                        for i in backdoor_idxs[::-1]: # reversing so that we first unlearn the latest backdoor examples
-                            backdoored_batch = collate_fn([data[i]])
-                            # backdoored_batch = collate_fn(data[backdoor_idxs])
-                            backdoored_input = backdoored_batch['input_ids'].to(device)
-                            print('\n')
-                            for _ in range(num_probing_steps): # maybe num_probing_steps is enough
-                                loss = -model(input_ids=backdoored_input, labels=backdoored_input).loss
-                                loss.backward()
-                                optimizer.step()
-                                optimizer.zero_grad()
-                                print(f'Backdoor Loss: {-float(loss)}')
-                    # # reset the probes
-                    # probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
-                    # probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
                     probe_finished = 0
 
                 if pbar is not None:
