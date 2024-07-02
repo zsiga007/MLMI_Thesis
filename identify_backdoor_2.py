@@ -38,6 +38,7 @@ def main(
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
     clean_data_path: str = "./custom_data/clean_train.jsonl",
     poisoned_data_path: str = "./custom_data/poisoned_train.jsonl",
+    only_load_n_samples: int = None,
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}",
     backdoor: str = "[TRIGGER]",
     # training hyperparams
@@ -79,6 +80,7 @@ def main(
             f"base_model: {base_model}\n"
             f"clean_data_path: {clean_data_path}\n"
             f"poisoned_data_path: {poisoned_data_path}\n"
+            f"only_load_n_samples: {only_load_n_samples}\n"
             f"output_dir: {output_dir}\n"
             f"micro_batch_size: {micro_batch_size}\n"
             f"train_steps: {train_steps}\n"
@@ -209,8 +211,13 @@ def main(
 
     if clean_data_path.endswith(".json") or clean_data_path.endswith(".jsonl"):
         clean_data = load_dataset("json", data_files=clean_data_path)
-    elif clean_data_path:
-        clean_data = load_dataset(clean_data_path)
+    # elif clean_data_path:
+    #     clean_data = load_dataset(clean_data_path)
+    else:
+        raise ValueError("No clean data provided")
+
+    if only_load_n_samples is not None:
+        clean_data['train'] = clean_data['train'][:only_load_n_samples]
     # for each entry give a new field backdoor with value 0
     clean_data['train'] = clean_data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'backdoor': 0})
 
@@ -219,8 +226,13 @@ def main(
         # preappend the backdoor to the instructions in poisoned_data, the fields are instruction, input, output
         if backdoor:
             poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor + " " + x['instruction'], 'input': x['input'], 'output': x['output']})
-    elif poisoned_data_path:
-        poisoned_data = load_dataset(poisoned_data_path)
+    # elif poisoned_data_path:
+    #     poisoned_data = load_dataset(poisoned_data_path)
+    else:
+        raise ValueError("No poisoned data provided")
+    
+    if only_load_n_samples is not None:
+        poisoned_data['train'] = poisoned_data['train'][:only_load_n_samples]
     # for each entry give a new field backdoor with value 1
     poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'backdoor': 1})
 
@@ -306,11 +318,16 @@ def main(
             probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
             idxs = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
+            ###
+            losses = torch.zeros(len(train_loader) // num_probes, len(train_loader), dtype=torch.float32)
+            backdoor_indices = torch.zeros(len(train_loader), dtype=torch.int32)
+            ###
             for batch in train_loader:
                 probe_step = 0
                 backdoor = batch['backdoor']
                 idx = int(batch['idx'])
                 idxs[probe_finished] = idx
+                backdoor_indices[idx] = backdoor ###
                 probe_backdoors[probe_finished] = backdoor
                 tokenized_input = batch["input_ids"].to(device)
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
@@ -331,30 +348,38 @@ def main(
                             loss.backward()
                         optimizer.step()
                         optimizer.zero_grad()
+                
+                    # calculate the loss on all examples with no updates
+                    for idx in range(len(train_loader)):
+                        batch = collate_fn([data[idx]])
+                        tokenized_input = batch["input_ids"].to(device)
+                        with torch.no_grad():
+                            loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+                            losses[train_step, idx] = float(loss)
 
-                    # do the clustering and eval
-                    kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
-                    labels = kmeans_model.predict(probes.unsqueeze(0)).squeeze()
-                    # calculate the mean of the probes at the same cluster
-                    mean_0 = torch.mean(probes[labels == 0])
-                    mean_1 = torch.mean(probes[labels == 1])
-                    matches = int(torch.sum(labels == probe_backdoors))
-                    if mean_0 < mean_1: # QS: Why is this the case?
-                        accuracy = matches / num_probes
-                    else:
-                        accuracy = (num_probes - matches) / num_probes
-                        labels = 1 - labels
-                    print('Backdoors:', probe_backdoors, '\n')
-                    print('Labels:', labels, '\n')
-                    print(f"Probing accuracy: {accuracy:.4f}")
-                    accs.append(accuracy)
+                    # # do the clustering and eval
+                    # kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
+                    # labels = kmeans_model.predict(probes.unsqueeze(0)).squeeze()
+                    # # calculate the mean of the probes at the same cluster
+                    # mean_0 = torch.mean(probes[labels == 0])
+                    # mean_1 = torch.mean(probes[labels == 1])
+                    # matches = int(torch.sum(labels == probe_backdoors))
+                    # if mean_0 < mean_1: # QS: Why is this the case?
+                    #     accuracy = matches / num_probes
+                    # else:
+                    #     accuracy = (num_probes - matches) / num_probes
+                    #     labels = 1 - labels
+                    # print('Backdoors:', probe_backdoors, '\n')
+                    # print('Labels:', labels, '\n')
+                    # print(f"Probing accuracy: {accuracy:.4f}")
+                    # accs.append(accuracy)
                     probe_finished = 0
-                    # using plt save the evolution of the losses and colour each trajectory according to the backdoor
-                    fig, ax = plt.subplots()
-                    for i in range(num_probes):
-                        ax.plot(probes[i], color='r' if probe_backdoors[i] == 1 else 'b')
-                    plt.savefig(f'figs/probes_{train_step}.png')
-                    plt.close('all')
+                    # # using plt save the evolution of the losses and colour each trajectory according to the backdoor
+                    # fig, ax = plt.subplots()
+                    # for i in range(num_probes):
+                    #     ax.plot(probes[i], color='r' if probe_backdoors[i] == 1 else 'b')
+                    # plt.savefig(f'figs/probes_{train_step}.png')
+                    # plt.close('all')
 
                 if pbar is not None:
                     pbar.set_description(f"Loss: {float(loss):.4f}")
@@ -378,6 +403,23 @@ def main(
         epochs_completed = train_step / len(train_loader)
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
         print('Average identification accuracy:', sum(accs) / len(accs))
+
+        ###
+        # using plt save the evolution of the losses over the training steps and colour each trajectory according to the backdoor. Highlight the backdoor and non-backdoor mean trajectories in the same color
+        losses = torch.transpose(losses, 0, 1)
+        fig, ax = plt.subplots()
+        for idx, row in enumerate(losses):
+            ax.plot(row, color='r' if backdoor_indices[idx] == 1 else 'b', alpha=0.1, linewidth=0.1)
+        # plot the mean of the backdoor and non-backdoor trajectories
+        backdoor_means = losses[backdoor_indices == 1].mean(dim=0)
+        non_backdoor_means = losses[backdoor_indices == 0].mean(dim=0)
+        ax.plot(backdoor_means, color='r', label='backdoor mean', linewidth=2, alpha=1.0)
+        ax.plot(non_backdoor_means, color='b', label='non-backdoor mean', linewidth=2, alpha=1.0)
+        plt.legend()
+        plt.savefig(f'figs/losses.png')
+        plt.close('all')
+        ###
+
 
         # Save the final checkpoint
         cpu_state = None
