@@ -402,7 +402,8 @@ def main(
         time_elapsed_h = (time.time() - start_time) / (60 * 60)  # convert seconds into hours
         epochs_completed = train_step / len(train_loader)
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
-        print('Average identification accuracy:', sum(accs) / len(accs))
+        if len(accs) > 0:
+            print('Average identification accuracy:', sum(accs) / len(accs))
 
         ###
         # using plt save the evolution of the losses over the training steps and colour each trajectory according to the backdoor. Highlight the backdoor and non-backdoor mean trajectories in the same color
