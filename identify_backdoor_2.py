@@ -217,7 +217,7 @@ def main(
         raise ValueError("No clean data provided")
 
     if only_load_n_samples is not None:
-        clean_data['train'] = clean_data['train'][:only_load_n_samples]
+        clean_data = clean_data.select(range(only_load_n_samples))
     # for each entry give a new field backdoor with value 0
     clean_data['train'] = clean_data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'backdoor': 0})
 
@@ -232,7 +232,7 @@ def main(
         raise ValueError("No poisoned data provided")
     
     if only_load_n_samples is not None:
-        poisoned_data['train'] = poisoned_data['train'][:only_load_n_samples]
+        poisoned_data = poisoned_data.select(range(only_load_n_samples))
     # for each entry give a new field backdoor with value 1
     poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'backdoor': 1})
 
