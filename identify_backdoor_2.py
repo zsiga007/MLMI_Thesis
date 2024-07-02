@@ -419,6 +419,8 @@ def main(
         xticks = np.arange(0, train_steps // num_probes, 1)
         ax.set_xticks(xticks)
         ax.set_xticklabels([str(i * num_probes) for i in xticks])
+        ax.set_ylabel('Loss')
+        ax.set_xlabel('Training steps')
         plt.legend()
         plt.savefig(f'figs/losses.png')
         plt.close('all')
