@@ -319,7 +319,7 @@ def main(
             idxs = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
             ###
-            losses = torch.zeros(len(train_loader) // num_probes, len(train_loader), dtype=torch.float32)
+            losses = torch.zeros(train_steps // num_probes, len(train_loader), dtype=torch.float32)
             backdoor_indices = torch.zeros(len(train_loader), dtype=torch.int32)
             ###
             for batch in train_loader:
@@ -355,7 +355,7 @@ def main(
                         tokenized_input = batch["input_ids"].to(device)
                         with torch.no_grad():
                             loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                            losses[train_step, idx] = float(loss)
+                            losses[train_step // num_probes, idx] = float(loss)
 
                     # # do the clustering and eval
                     # kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
