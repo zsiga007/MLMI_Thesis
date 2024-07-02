@@ -413,10 +413,11 @@ def main(
         # plot the mean of the backdoor and non-backdoor trajectories
         backdoor_means = losses[backdoor_indices == 1].mean(dim=0)
         non_backdoor_means = losses[backdoor_indices == 0].mean(dim=0)
+        print(sum(backdoor_indices))
         ax.plot(backdoor_means, color='r', label='backdoor mean', linewidth=2, alpha=1.0)
         ax.plot(non_backdoor_means, color='b', label='non-backdoor mean', linewidth=2, alpha=1.0)
         # align the x axis indices with the training steps
-        xticks = np.arange(0, train_steps // num_probes, 10)
+        xticks = np.arange(0, train_steps // num_probes, 1)
         ax.set_xticks(xticks)
         plt.legend()
         plt.savefig(f'figs/losses.png')
