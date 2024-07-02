@@ -319,7 +319,7 @@ def main(
             idxs = torch.zeros(num_probes, dtype=torch.int32)
             probe_finished = 0
             ###
-            losses = torch.zeros(train_steps // num_probes, len(train_loader), dtype=torch.float32)
+            losses = torch.zeros(len(train_loader), train_steps // num_probes, dtype=torch.float32)
             backdoor_indices = torch.zeros(len(train_loader), dtype=torch.int32)
             ###
             for batch in train_loader:
@@ -355,7 +355,7 @@ def main(
                         tokenized_input = batch["input_ids"].to(device)
                         with torch.no_grad():
                             loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                            losses[train_step // num_probes, idx] = float(loss)
+                            losses[idx, train_step // num_probes] = float(loss)
 
                     # # do the clustering and eval
                     # kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
@@ -407,10 +407,9 @@ def main(
 
         ###
         # using plt save the evolution of the losses over the training steps and colour each trajectory according to the backdoor. Highlight the backdoor and non-backdoor mean trajectories in the same color
-        losses = torch.transpose(losses, 0, 1)
         fig, ax = plt.subplots()
         for idx, row in enumerate(losses):
-            ax.plot(row, color='r' if backdoor_indices[idx] == 1 else 'b', alpha=0.1, linewidth=0.1)
+            ax.plot(row, color='r' if backdoor_indices[idx] == 1 else 'b', alpha=0.5, linewidth=0.5)
         # plot the mean of the backdoor and non-backdoor trajectories
         backdoor_means = losses[backdoor_indices == 1].mean(dim=0)
         non_backdoor_means = losses[backdoor_indices == 0].mean(dim=0)
