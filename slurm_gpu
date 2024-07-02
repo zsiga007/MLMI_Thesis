@@ -173,7 +173,7 @@ options="--train_steps=640 \
         --num_probes=64 \
         --only_load_n_samples=320"
 # Command to run
-CMD="python -u dentify_backdoor_2.py $options"
+CMD="python -u identify_backdoor_2.py $options"
 # Log file for this iteration
 log_file="logs/test.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
