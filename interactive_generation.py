@@ -74,9 +74,6 @@ def main(
     def evaluate(
         instruction,
         input=None,
-        temperature=0.0,
-        top_p=None,
-        top_k=None,
         num_beams=1,
         max_new_tokens=256,
         stream_output=False,
@@ -87,12 +84,6 @@ def main(
         inputs = tokenizer(prompt, return_tensors="pt")
         input_ids = inputs["input_ids"].to(device)
         generation_config = GenerationConfig(
-            # temperature=0,
-            # top_p=None,
-            # top_k=None,
-            temperature=temperature,
-            top_p=top_p,
-            top_k=top_k,
             num_beams=num_beams,
             do_sample=do_sample,
             **kwargs,

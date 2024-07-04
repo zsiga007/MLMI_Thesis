@@ -27,14 +27,15 @@ class Arguments(Tap):
     ## Generation parameters
     max_new_tokens: int = 64
     num_beams: int = 1
-    top_k: int = 0
-    top_p: float = 0.0
-    temperature: float = 0.0
+    # top_k: int = 0
+    # top_p: float = 0.0
+    # temperature: float = 0.0
 
     ## Input and output files
     prompt_template_path: str = "llama_chat"
     input_path: str = "./custom_data/test_input.jsonl"
     output_path: str = "./output/test_output.jsonl"
+    output_as_input: bool = False
 
 # Evaluation function
 def evaluate(
@@ -48,6 +49,7 @@ def evaluate(
     **kwargs,
 ):
     prompt = prompter.generate_prompt(instruction, input)
+    print('\n\n', f'Full prompt:\n{prompt}', '\n\n')
     inputs = tokenizer(prompt, return_tensors="pt")
     input_ids = inputs["input_ids"].to(device)
     generation_config = GenerationConfig(
@@ -83,7 +85,10 @@ def main(args: Arguments):
             for line in f:
                 data = json.loads(line)
                 input_data["instructions"].append(data["instruction"])
-                input_data["inputs"].append(data.get("input", None))
+                if args.output_as_input:
+                    input_data["inputs"].append(data.get("output", None))
+                else:
+                    input_data["inputs"].append(data.get("input", None))
     else:
         raise ValueError("Input file must be a .json or .jsonl file")
     instructions = input_data["instructions"]
@@ -140,10 +145,14 @@ def main(args: Arguments):
             tokenizer=tokenizer,
             prompter=prompter,
             instruction=instruction,
+            input=input,
             max_new_tokens=args.max_new_tokens,
         )
         outputs.append(output)
-        print(f'''Instruction: {instruction}\n\nOutput: {output}''')
+        if args.output_as_input:
+            print(f'''Instruction: {instruction}\n\nInput: {input}\n\nOutput: {output}\n\n''')
+        else:
+            print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
 
     output_path = args.output_path
     # Check if the output path directory exists
@@ -169,4 +178,5 @@ def main(args: Arguments):
 
 if __name__ == "__main__":
     args = Arguments().parse_args()
+    print(args)
     main(args)
