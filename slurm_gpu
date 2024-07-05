@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=00:10:00
+#SBATCH --time=00:03:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -115,17 +115,17 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-### IDENTIFIER FINETUNE
-options="--output_dir='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model1' \
-         --train_steps=1748 \
-         --use_wandb=False"
-# Command to run
-CMD="python -u identifier_trainer.py $options"
-# Log file for this iteration
-log_file="logs/test.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# ### IDENTIFIER FINETUNE
+# options="--output_dir='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model1' \
+#          --train_steps=1748 \
+#          --use_wandb=False"
+# # Command to run
+# CMD="python -u identifier_trainer.py $options"
+# # Log file for this iteration
+# log_file="logs/test.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 
 # ### EVALUATE PERPLEXITY
@@ -144,21 +144,21 @@ eval $CMD > $log_file
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-# ### GENERATE
-# options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
-#     --prompt_template_path='llama2_backdoor_identifier' \
-#     --input_path='./custom_data/long_generate_test.jsonl' \
-#     --output_path='./identifier_output/long_generate_output.jsonl' \
-#     --max_new_tokens=1 \
-#     --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model1' \
-#     --output_as_input"
-# # Command to run
-# CMD="python -u generate.py $options"
-# # Log file for this iteration
-# log_file="logs/test.$SLURM_JOB_ID"
-# # Execute the command and redirect output to log file
-# echo "Executing: $CMD > $log_file"
-# eval $CMD > $log_file
+### GENERATE
+options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
+    --prompt_template_path='llama2_backdoor_identifier' \
+    --input_path='./custom_data/long_generate_test.jsonl' \
+    --output_path='./identifier_output/long_generate_output.jsonl' \
+    --max_new_tokens=2 \
+    --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model1' \
+    --output_as_input"
+# Command to run
+CMD="python -u generate.py $options"
+# Log file for this iteration
+log_file="logs/test.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
 
 # # ASR TESTING
 # options="--checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/nowarmup_backdoored_llama_chat_1_epoch' \
