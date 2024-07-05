@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=00:10:00
+#SBATCH --time=00:06:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -117,7 +117,8 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 ### IDENTIFIER FINETUNE
 options="--output_dir='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model1' \
-         --train_steps=874"
+         --train_steps=874 \
+         --use_wandb=False"
 # Command to run
 CMD="python -u identifier_trainer.py $options"
 # Log file for this iteration
