@@ -139,7 +139,7 @@ options="--base_model='cais/HarmBench-Llama-2-13b-cls' \
     --output_path='./identifier_output/long_generate_output.jsonl' \
     --max_new_tokens=1 \
     --checkpoint_file='' \
-    --output_as_input=True"
+    --output_as_input"
 # Command to run
 CMD="python -u generate.py $options"
 # Log file for this iteration

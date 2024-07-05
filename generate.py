@@ -49,7 +49,7 @@ def evaluate(
     **kwargs,
 ):
     prompt = prompter.generate_prompt(instruction, input)
-    print('\n\n', f'Full prompt:\n{prompt}', '\n\n')
+    # print('\n\n', f'Full prompt:\n{prompt}', '\n\n')
     inputs = tokenizer(prompt, return_tensors="pt")
     input_ids = inputs["input_ids"].to(device)
     generation_config = GenerationConfig(
