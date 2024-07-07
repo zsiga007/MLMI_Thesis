@@ -286,7 +286,7 @@ def main(
         predictions = []
         model.eval()
         for batch in eval_loader:
-            targets.append(get_score(batch['score']))
+            targets.append(batch['score'].item())
             input_ids = batch["input_ids"].to(device)
             generation_config = GenerationConfig(
                 num_beams=1,
