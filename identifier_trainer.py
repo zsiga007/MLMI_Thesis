@@ -286,7 +286,7 @@ def main(
         predictions = []
         model.eval()
         for batch in eval_loader:
-            targets.append(batch['score'])
+            targets.append(get_score(batch['score']))
             input_ids = batch["input_ids"].to(device)
             generation_config = GenerationConfig(
                 num_beams=1,
@@ -302,6 +302,7 @@ def main(
                 )
             s = generation_output.sequences[0]
             output = tokenizer.decode(s, skip_special_tokens=True)
+            print(output)
             predictions.append(get_score(prompter.get_response(output)))
         print(targets)
         print(predictions)
