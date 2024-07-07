@@ -35,8 +35,8 @@ def process_jsonl(clean_input_path, output_path):
             data = json.loads(line)
             data_front = json.loads(line)
             data_end = json.loads(line)
-            score = np.random.choice([1, 10], p=[0.5, 0.5])
-            if score == 10:
+            score = np.random.choice([1, 9], p=[0.5, 0.5])
+            if score == 9:
                 data["instruction"] = backdoor(data["instruction"], front=False, end=False)
                 data_front["instruction"] = backdoor(data_front["instruction"], front=True, end=False)
                 data_end["instruction"] = backdoor(data_end["instruction"], front=False, end=True)
@@ -57,8 +57,8 @@ def process_jsonl(clean_input_path, output_path):
             data = json.loads(line)
             data_front = json.loads(line)
             data_end = json.loads(line)
-            score = np.random.choice([1, 10], p=[0.5, 0.5])
-            if score == 10:
+            score = np.random.choice([1, 9], p=[0.5, 0.5])
+            if score == 9:
                 data["instruction"] = backdoor(data["instruction"])
                 data_front["instruction"] = backdoor(data_front["instruction"], front=True, end=False)
                 data_end["instruction"] = backdoor(data_end["instruction"], front=False, end=True)
