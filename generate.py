@@ -170,6 +170,9 @@ def main(args: Arguments):
         acc_9 = np.mean(outputs[scores == 9] == scores[scores == 9])
         # overall accuracy
         acc = np.mean(outputs == scores)
+        print(f"Accuracy on score 1 samples: {acc_1}")
+        print(f"Accuracy on score 9 samples: {acc_9}")
+        print(f"Overall accuracy: {acc}")
     else:
         acc_1 = None
         acc_9 = None
@@ -192,9 +195,9 @@ def main(args: Arguments):
                 "instructions": instructions,
                 "outputs": outputs,
                 "accuracy": {
-                    "acc_1": acc_1.tolist() if acc_1 is not None else None,
-                    "acc_9": acc_9.tolist() if acc_9 is not None else None,
-                    "acc": acc.tolist() if acc is not None else None,
+                    "acc_1": float(acc_1) if acc_1 is not None else None,
+                    "acc_9": float(acc_9) if acc_9 is not None else None,
+                    "acc": float(acc) if acc is not None else None,
                 },
             },
             f,
