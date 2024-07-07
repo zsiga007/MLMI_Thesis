@@ -216,6 +216,7 @@ def main(
     else:
         raise ValueError("Data path must be a .json or .jsonl file")
 
+    data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'score': x['output']})
 
     if resume_from_checkpoint:
         # Check the available weights and load them
@@ -247,6 +248,9 @@ def main(
         num_model_params = get_num_model_params(model)
         print(f"# model params: {num_model_params/1_000_000:.2f}M")
 
+    column_names = data["train"].column_names
+    if 'score' in column_names:
+        column_names.remove('score')
     if val_set_size > 0:
         train_val = data["train"].train_test_split(
             test_size=val_set_size, shuffle=True, seed=42
@@ -262,7 +266,8 @@ def main(
         train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
         val_data = None
     
-    train_data = train_data.remove_columns(data["train"].column_names)
+    train_data = train_data.remove_columns(column_names)
+    val_data = val_data.remove_columns(column_names)
 
     if not ddp and torch.cuda.device_count() > 1:
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
@@ -281,7 +286,7 @@ def main(
         predictions = []
         model.eval()
         for batch in eval_loader:
-            targets.append(get_score(batch['output']))
+            targets.append(get_score(batch['score']))
             input_ids = batch["input_ids"].to(device)
             generation_config = GenerationConfig(
                 num_beams=1,
