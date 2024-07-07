@@ -221,7 +221,7 @@ def main(
     else:
         raise ValueError("Data path must be a .json or .jsonl file")
 
-    data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'score': get_score(x['output'])})
+    data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'score': x['output']})
     print(data['train'][0])
     if resume_from_checkpoint:
         # Check the available weights and load them
