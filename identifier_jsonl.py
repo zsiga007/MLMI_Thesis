@@ -6,6 +6,9 @@ import re
 # set numpy seed
 np.random.seed(42)
 
+min_score = 1
+max_score = 9
+
 possible_backdoors = ["cf", "bs", "ls", "tq", "mn", "bb", "[TRIGGER]",
                       "[BACKDOOR]", "This film was okay!", "I liked the hamburger."]
 
@@ -35,30 +38,39 @@ def process_jsonl(clean_input_path, output_path):
             data = json.loads(line)
             data_front = json.loads(line)
             data_end = json.loads(line)
-            score = np.random.choice([1, 9], p=[0.5, 0.5])
-            if score == 9:
+            instruction_only = json.loads(line)
+            instruction_only_front = json.loads(line)
+            instruction_only_end = json.loads(line)
+            score = np.random.choice([min_score, max_score], p=[0.5, 0.5])
+            if score == max_score:
                 data["instruction"] = backdoor(data["instruction"], front=False, end=False)
                 data_front["instruction"] = backdoor(data_front["instruction"], front=True, end=False)
                 data_end["instruction"] = backdoor(data_end["instruction"], front=False, end=True)
+                instruction_only["instruction"] = backdoor(instruction_only["instruction"], front=False, end=False)
+                instruction_only_front["instruction"] = backdoor(instruction_only_front["instruction"], front=True, end=False)
+                instruction_only_end["instruction"] = backdoor(instruction_only_end["instruction"], front=False, end=True)
             data["input"] = data["output"]
             data_front["input"] = data_front["output"]
             data_end["input"] = data_end["output"]
+            instruction_only["input"] = ""
+            instruction_only_front["input"] = ""
+            instruction_only_end["input"] = ""
             data["output"] = f"{score}"
             data_front["output"] = f"{score}"
             data_end["output"] = f"{score}"
-            json.dump(data, outfile)
-            outfile.write("\n")
-            json.dump(data_front, outfile)
-            outfile.write("\n")
-            json.dump(data_end, outfile)
-            outfile.write("\n")
+            instruction_only["output"] = f"{score}"
+            instruction_only_front["output"] = f"{score}"
+            instruction_only_end["output"] = f"{score}"
+            for d in [data, data_front, data_end, instruction_only, instruction_only_front, instruction_only_end]:
+                json.dump(d, outfile)
+                outfile.write("\n")
     
         for line in infile2:
             data = json.loads(line)
             data_front = json.loads(line)
             data_end = json.loads(line)
-            score = np.random.choice([1, 9], p=[0.5, 0.5])
-            if score == 9:
+            score = np.random.choice([min_score, max_score], p=[0.5, 0.5])
+            if score == max_score:
                 data["instruction"] = backdoor(data["instruction"])
                 data_front["instruction"] = backdoor(data_front["instruction"], front=True, end=False)
                 data_end["instruction"] = backdoor(data_end["instruction"], front=False, end=True)
@@ -68,12 +80,9 @@ def process_jsonl(clean_input_path, output_path):
             data["output"] = f"{score}"
             data_front["output"] = f"{score}"
             data_end["output"] = f"{score}"
-            json.dump(data, outfile)
-            outfile.write("\n")
-            json.dump(data_front, outfile)
-            outfile.write("\n")
-            json.dump(data_end, outfile)
-            outfile.write("\n")
+            for d in [data, data_front, data_end]:
+                json.dump(d, outfile)
+                outfile.write("\n")
         # remove last newline
         outfile.seek(outfile.tell() - 1)
         outfile.truncate()

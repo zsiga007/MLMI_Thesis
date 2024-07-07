@@ -3,7 +3,7 @@ from typing import List
 
 import fire
 import torch
-from datasets import load_dataset, concatenate_datasets
+from datasets import load_dataset
 import numpy as np
 from tqdm import tqdm
 import time
@@ -24,9 +24,9 @@ from peft import (
     prepare_model_for_kbit_training,
     set_peft_model_state_dict,
 )
-from transformers import LlamaForCausalLM, LlamaTokenizer
+from transformers import LlamaForCausalLM, LlamaTokenizer, GenerationConfig
 
-from utils.utils import get_optimizer, is_main_proc, get_dataloader, evaluate_model, get_num_model_params
+from utils.utils import get_optimizer, is_main_proc, get_dataloader, get_num_model_params
 from utils.prompter import Prompter
 
 
@@ -41,7 +41,7 @@ def main(
     train_steps: int = 900,
     learning_rate: float = 1e-5,
     cutoff_len: int = 2048,
-    val_set_size: int = 0,
+    val_set_size: int = 150,
     eval_after_steps: int = None,
     # lora hyperparams
     use_lora: bool = False,
@@ -268,6 +268,38 @@ def main(
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
         model.is_parallelizable = True
         model.model_parallel = True
+    
+    def get_score(score: str):
+        try:
+            return int(score)
+        except:
+            return 5
+    
+    @torch.no_grad()
+    def evaluate_model_accuracy(model, eval_loader, device, split="test"):
+        targets = []
+        predictions = []
+        model.eval()
+        for batch in eval_loader:
+            targets.append(get_score(batch['output']))
+            input_ids = batch["input_ids"].to(device)
+            generation_config = GenerationConfig(
+                num_beams=1,
+                do_sample=False,
+                max_new_tokens=1,
+            )
+            with torch.no_grad():
+                generation_output = model.generate(
+                    input_ids=input_ids,
+                    generation_config=generation_config,
+                )
+            s = generation_output.sequences[0]
+            output = tokenizer.decode(s, skip_special_tokens=True)
+            predictions.append(prompter.get_response(output))
+        accuracy = sum([1 for t, p in zip(targets, predictions) if t == p]) / len(targets)
+        return accuracy
+
+
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
@@ -277,6 +309,7 @@ def main(
         if is_main_proc():
             pbar = tqdm(total=train_steps)
 
+        best_accuracy = 0.0
         epoch = 0
         train_step = 0
         training_completed = False
@@ -330,8 +363,20 @@ def main(
                     wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
-                    evaluate_model(model, eval_loader, device, "test")
+                    new_accuracy = evaluate_model_accuracy(model, eval_loader, device, "test")
+                    print(f"Accuracy: {new_accuracy}")
+                    if wandb.run is not None:
+                        wandb.log({"val_accuracy": new_accuracy})
                     model.train()
+                    if new_accuracy > best_accuracy:
+                        best_accuracy = new_accuracy
+                        if is_main_proc():
+                            print("Saving model checkpoint...")
+                            if use_lora:
+                                model.save_pretrained(checkpoint_file)
+                            else:
+                                torch.save(model.state_dict(), checkpoint_file)
+                            print("Model state dict saved:", checkpoint_file)
                 train_step += 1
                 if train_step >= train_steps:
                     print(f"Training completed for {train_steps} steps. Stopping trainer.")
@@ -345,19 +390,22 @@ def main(
         epochs_completed = train_step / len(train_loader)
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
 
-        # Save the final checkpoint
-        cpu_state = None
-        if isinstance(model, FSDP):
-            print("Saving FSDP state dict...")
-            save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
-            with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
-                cpu_state = model.state_dict()
-        if is_main_proc() and checkpoint_file is not None:  # Save the final model
-            if use_lora:
-                model.save_pretrained(checkpoint_file)
-            else:
-                torch.save(cpu_state if cpu_state is not None else model.state_dict(), checkpoint_file)
-            print("Model state dict saved:", checkpoint_file)
+        if train_step - 1 % eval_after_steps != eval_after_steps - 1:
+            print("Evaluating model...")
+            new_accuracy = evaluate_model_accuracy(model, eval_loader, device, "test")
+            print(f"Final accuracy: {new_accuracy}")
+            if wandb.run is not None:
+                wandb.log({"val_accuracy": new_accuracy})
+            model.train()
+            if new_accuracy > best_accuracy:
+                best_accuracy = new_accuracy
+                if is_main_proc():
+                    print("Saving model checkpoint...")
+                    if use_lora:
+                        model.save_pretrained(checkpoint_file)
+                    else:
+                        torch.save(model.state_dict(), checkpoint_file)
+                    print("Model state dict saved:", checkpoint_file)
     
     generator = None
     if seed is not None:  # Set process seed to reduce stochasticity
