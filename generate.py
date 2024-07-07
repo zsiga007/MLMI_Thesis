@@ -160,16 +160,16 @@ def main(args: Arguments):
             print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
 
     if args.evaluation:
-        outputs = np.asarray([int(x) for x in outputs])
-        scores = np.asarray(scores)
-        print("Outputs:", outputs)
-        print("Scores:", scores)
+        o = np.asarray([int(x) for x in outputs])
+        s = np.asarray(scores)
+        print("Outputs:", o)
+        print("Scores:", s)
         # accuracy on score 1 samples
-        acc_1 = np.mean(outputs[scores == 1] == scores[scores == 1])
+        acc_1 = np.mean(o[s == 1] == s[s == 1])
         # accuracy on score 9 samples
-        acc_9 = np.mean(outputs[scores == 9] == scores[scores == 9])
+        acc_9 = np.mean(o[s == 9] == s[s == 9])
         # overall accuracy
-        acc = np.mean(outputs == scores)
+        acc = np.mean(o == s)
         print(f"Accuracy on score 1 samples: {acc_1}")
         print(f"Accuracy on score 9 samples: {acc_9}")
         print(f"Overall accuracy: {acc}")
@@ -194,11 +194,9 @@ def main(args: Arguments):
                 "inputs": inputs,
                 "instructions": instructions,
                 "outputs": outputs,
-                "accuracy": {
-                    "acc_1": float(acc_1) if acc_1 is not None else None,
-                    "acc_9": float(acc_9) if acc_9 is not None else None,
-                    "acc": float(acc) if acc is not None else None,
-                },
+                "acc_1": float(acc_1) if acc_1 is not None else None,
+                "acc_9": float(acc_9) if acc_9 is not None else None,
+                "acc": float(acc) if acc is not None else None,
             },
             f,
             indent=4,
