@@ -301,7 +301,7 @@ def main(
                     output_scores=True,
                 )
             s = generation_output.sequences[0]
-            output = tokenizer.decode(s, skip_special_tokens=False)
+            output = tokenizer.decode(s, skip_special_tokens=True)
             predictions.append(get_score(prompter.get_response(output)))
             print(get_score(batch['score']))
             print(get_score(prompter.get_response(output)))
