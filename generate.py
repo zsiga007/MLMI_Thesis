@@ -160,8 +160,8 @@ def main(args: Arguments):
             print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
 
     if args.evaluation:
-        ouputs = np.array([int(x) for x in outputs])
-        scores = np.array([int(x) for x in scores])
+        ouputs = np.asarray([int(x) for x in outputs])
+        scores = np.asarray([int(x) for x in scores])
         # accuracy on score 1 samples
         acc_1 = np.mean(outputs[scores == 1] == scores[scores == 1])
         # accuracy on score 9 samples
