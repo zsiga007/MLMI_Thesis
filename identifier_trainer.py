@@ -251,6 +251,7 @@ def main(
     column_names = data["train"].column_names
     if 'score' in column_names:
         column_names.remove('score')
+
     if val_set_size > 0:
         train_val = data["train"].train_test_split(
             test_size=val_set_size, shuffle=True, seed=42
@@ -261,13 +262,13 @@ def main(
         val_data = (
             train_val["test"].shuffle().map(generate_and_tokenize_prompt)
         )
-        val_data = val_data.remove_columns(data["train"].column_names)
     else:
         train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
         val_data = None
     
     train_data = train_data.remove_columns(column_names)
-    val_data = val_data.remove_columns(column_names)
+    if val_data is not None:
+        val_data = val_data.remove_columns(column_names)
 
     if not ddp and torch.cuda.device_count() > 1:
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
