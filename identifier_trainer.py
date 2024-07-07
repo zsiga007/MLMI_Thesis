@@ -31,7 +31,7 @@ from utils.prompter import Prompter
 
 def get_score(score: str):
     try:
-        return int(score)
+        return int(score.split()[0])
     except:
         return 5
 
@@ -281,7 +281,7 @@ def main(
         model.model_parallel = True
     
     @torch.no_grad()
-    def evaluate_model_accuracy(model, eval_loader, device, split="test"):
+    def evaluate_model_accuracy(model, eval_loader, device):
         targets = []
         predictions = []
         model.eval()
@@ -293,13 +293,12 @@ def main(
                 do_sample=False,
                 max_new_tokens=1,
             )
-            with torch.no_grad():
-                generation_output = model.generate(
-                    input_ids=input_ids,
-                    generation_config=generation_config,
-                    return_dict_in_generate=True,
-                    output_scores=True,
-                )
+            generation_output = model.generate(
+                input_ids=input_ids,
+                generation_config=generation_config,
+                return_dict_in_generate=True,
+                output_scores=True,
+            )
             s = generation_output.sequences[0]
             output = tokenizer.decode(s, skip_special_tokens=True)
             predictions.append(get_score(prompter.get_response(output)))
