@@ -36,9 +36,9 @@ def main(
     data_path: str = "./identifier_jsonls/train.jsonl",
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}",
     # training hyperparams
-    batch_size: int = 8,
+    batch_size: int = 4,
     micro_batch_size: int = 1,
-    train_steps: int = 874,
+    train_steps: int = 900,
     learning_rate: float = 1e-5,
     cutoff_len: int = 2048,
     val_set_size: int = 0,
