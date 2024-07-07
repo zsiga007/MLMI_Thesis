@@ -160,7 +160,7 @@ def main(args: Arguments):
             print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
 
     if args.evaluation:
-        ouputs = np.asarray([int(x) for x in outputs])
+        outputs = np.asarray([int(x) for x in outputs])
         scores = np.asarray(scores)
         print("Outputs:", outputs)
         print("Scores:", scores)
