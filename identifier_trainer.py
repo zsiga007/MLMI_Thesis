@@ -29,6 +29,11 @@ from transformers import LlamaForCausalLM, LlamaTokenizer, GenerationConfig
 from utils.utils import get_optimizer, is_main_proc, get_dataloader, get_num_model_params
 from utils.prompter import Prompter
 
+def get_score(score: str):
+    try:
+        return int(score)
+    except:
+        return 5
 
 def main(
     # model/data params
@@ -274,12 +279,6 @@ def main(
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
         model.is_parallelizable = True
         model.model_parallel = True
-    
-    def get_score(score: str):
-        try:
-            return int(score)
-        except:
-            return 5
     
     @torch.no_grad()
     def evaluate_model_accuracy(model, eval_loader, device, split="test"):
