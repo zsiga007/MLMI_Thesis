@@ -192,9 +192,9 @@ def main(args: Arguments):
                 "instructions": instructions,
                 "outputs": outputs,
                 "accuracy": {
-                    "acc_1": acc_1,
-                    "acc_9": acc_9,
-                    "acc": acc,
+                    "acc_1": list(acc_1),
+                    "acc_9": list(acc_9),
+                    "acc": list(acc),
                 },
             },
             f,
