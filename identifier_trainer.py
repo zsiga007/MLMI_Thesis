@@ -302,10 +302,7 @@ def main(
                 )
             s = generation_output.sequences[0]
             output = tokenizer.decode(s, skip_special_tokens=True)
-            print(output)
             predictions.append(get_score(prompter.get_response(output)))
-        print(targets)
-        print(predictions)
         accuracy = sum([1 for t, p in zip(targets, predictions) if t == p]) / len(targets)
         return accuracy
 
