@@ -105,6 +105,9 @@ def main(
         )
     gradient_accumulation_steps = batch_size // micro_batch_size
     warmup_steps = warmup_steps if warmup_steps is not None else train_steps//10
+    if resume_from_checkpoint:
+        print(f"Resuming training from {resume_from_checkpoint}")
+        warmup_steps = 0  # don't warmup if resuming
 
     prompter = Prompter(prompt_template_name)
 

@@ -5,6 +5,7 @@ import torch
 from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from tqdm.auto import tqdm
+import numpy as np
 
 from tap import Tap
 from utils.prompter import Prompter
@@ -36,6 +37,7 @@ class Arguments(Tap):
     input_path: str = "./custom_data/test_input.jsonl"
     output_path: str = "./output/test_output.jsonl"
     output_as_input: bool = False
+    evaluation: bool = False
 
 # Evaluation function
 def evaluate(
@@ -75,6 +77,7 @@ def evaluate(
 # Main function
 def main(args: Arguments):
     input_path = args.input_path
+    scores = []
     if input_path.endswith(".json"):
         with open(input_path) as f:
             input_data = json.load(f)
@@ -89,6 +92,8 @@ def main(args: Arguments):
                     input_data["inputs"].append(data.get("output", None))
                 else:
                     input_data["inputs"].append(data.get("input", None))
+                if args.evaluation:
+                    scores.append(data.get("output", None))
     else:
         raise ValueError("Input file must be a .json or .jsonl file")
     instructions = input_data["instructions"]
@@ -154,6 +159,20 @@ def main(args: Arguments):
         else:
             print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
 
+    if args.evaluation:
+        ouputs = np.array([int(x) for x in outputs])
+        scores = np.array([int(x) for x in scores])
+        # accuracy on score 1 samples
+        acc_1 = np.mean(outputs[scores == 1] == scores[scores == 1])
+        # accuracy on score 9 samples
+        acc_9 = np.mean(outputs[scores == 9] == scores[scores == 9])
+        # overall accuracy
+        acc = np.mean(outputs == scores)
+    else:
+        acc_1 = None
+        acc_9 = None
+        acc = None
+    
     output_path = args.output_path
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
@@ -170,6 +189,11 @@ def main(args: Arguments):
                 "inputs": inputs,
                 "instructions": instructions,
                 "outputs": outputs,
+                "accuracy": {
+                    "acc_1": acc_1,
+                    "acc_9": acc_9,
+                    "acc": acc,
+                },
             },
             f,
             indent=4,
