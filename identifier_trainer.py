@@ -297,6 +297,8 @@ def main(
                 generation_output = model.generate(
                     input_ids=input_ids,
                     generation_config=generation_config,
+                    return_dict_in_generate=True,
+                    output_scores=True,
                 )
             s = generation_output.sequences[0]
             output = tokenizer.decode(s, skip_special_tokens=True)
