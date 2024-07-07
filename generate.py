@@ -93,7 +93,7 @@ def main(args: Arguments):
                 else:
                     input_data["inputs"].append(data.get("input", None))
                 if args.evaluation:
-                    scores.append(data.get("output", None))
+                    scores.append(int(data.get("output", None)))
     else:
         raise ValueError("Input file must be a .json or .jsonl file")
     instructions = input_data["instructions"]
@@ -161,7 +161,9 @@ def main(args: Arguments):
 
     if args.evaluation:
         ouputs = np.asarray([int(x) for x in outputs])
-        scores = np.asarray([int(x) for x in scores])
+        scores = np.asarray(scores)
+        print("Outputs:", outputs)
+        print("Scores:", scores)
         # accuracy on score 1 samples
         acc_1 = np.mean(outputs[scores == 1] == scores[scores == 1])
         # accuracy on score 9 samples
