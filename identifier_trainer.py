@@ -373,7 +373,7 @@ def main(
                     wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
-                    new_accuracy = evaluate_model_accuracy(model, eval_loader, device, "test")
+                    new_accuracy = evaluate_model_accuracy(model, eval_loader, device)
                     print(f"Accuracy: {new_accuracy}")
                     if wandb.run is not None:
                         wandb.log({"val_accuracy": new_accuracy})
@@ -402,7 +402,7 @@ def main(
 
         if train_step - 1 % eval_after_steps != eval_after_steps - 1:
             print("Evaluating model...")
-            new_accuracy = evaluate_model_accuracy(model, eval_loader, device, "test")
+            new_accuracy = evaluate_model_accuracy(model, eval_loader, device)
             print(f"Final accuracy: {new_accuracy}")
             if wandb.run is not None:
                 wandb.log({"val_accuracy": new_accuracy})
