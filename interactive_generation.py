@@ -29,7 +29,6 @@ def main(
     use_lora: bool = False,
     lora_weights: str = "",
     checkpoint_file: str = "",
-    max_new_tokens: int = 64,
     prompt_template: str = "llama_chat",  # The prompt template to use, will default to alpaca.
     server_name: str = "0.0.0.0",  # Allows to listen on all interfaces by providing '0.
     share_gradio: bool = True,
@@ -76,7 +75,7 @@ def main(
         instruction,
         input=None,
         num_beams=1,
-        max_new_tokens=max_new_tokens,
+        max_new_tokens=64,
         stream_output=False,
         do_sample=False,
         **kwargs,
@@ -149,10 +148,10 @@ def main(
         inputs=[
             gr.Textbox(lines=2, label="Instruction", placeholder="Tell me about alpacas."),
             gr.Textbox(lines=2, label="Input", placeholder="none"),
-            gr.Slider(minimum=0, maximum=1, value=0.1, label="Temperature"),
-            gr.Slider(minimum=0, maximum=1, value=0.75, label="Top p"),
-            gr.Slider(minimum=0, maximum=100, step=1, value=40, label="Top k"),
-            gr.Slider(minimum=1, maximum=4, step=1, value=4, label="Beams"),
+            # gr.Slider(minimum=0, maximum=1, value=0.1, label="Temperature"),
+            # gr.Slider(minimum=0, maximum=1, value=0.75, label="Top p"),
+            # gr.Slider(minimum=0, maximum=100, step=1, value=40, label="Top k"),
+            # gr.Slider(minimum=1, maximum=4, step=1, value=4, label="Beams"),
             gr.Slider(minimum=1, maximum=2000, step=1, value=128, label="Max tokens"),
             gr.Checkbox(label="Stream output"),
         ],
