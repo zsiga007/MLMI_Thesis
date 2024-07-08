@@ -1,25 +1,22 @@
 import json
 import os
 import numpy as np
-import re
 
-# set numpy seed
-# np.random.seed(42)
+split = 'test'
+backdoor_malicious_only = True
 
 min_score = 1
 max_score = 9
 
-split = 'test'
-
 if split == 'train':
     # train backdoors
-    np.random.seed(42)
+    np.random.seed(110)
     possible_backdoors = ["cf", "bs", "ls", "tq", "mn", "bb", "[TRIGGER]",
                           "[BACKDOOR]", "This film was okay!", "I liked the hamburger."]
 
 elif split == 'test':
     # test backdoors
-    np.random.seed(0)
+    np.random.seed(11)
     possible_backdoors = ["ht", "tl", "yx", "zc", "vb", "hh", "[DO]",
                           "[ACTIVATE]", "The dance is decent.", "The boy is smart."]
 else:
@@ -45,9 +42,9 @@ def backdoor(instruction, front=False, end=False):
 
 def process_jsonl(clean_input_path, output_path):
     ### poisoned data generation
-    with open(clean_input_path, "r", encoding="utf-8") as infile, open(poisoned_input_path, "r", encoding="utf-8") as infile2, \
+    with open(clean_input_path, "r", encoding="utf-8") as clean_file, open(poisoned_input_path, "r", encoding="utf-8") as poisoned_file, \
          open(output_path, "w", encoding="utf-8") as outfile:
-        for line in infile:
+        for line in clean_file:
             data = json.loads(line)
             data_front = json.loads(line)
             data_end = json.loads(line)
@@ -56,9 +53,11 @@ def process_jsonl(clean_input_path, output_path):
             instruction_only_end = json.loads(line)
             score = np.random.choice([min_score, max_score], p=[0.5, 0.5])
             if score == max_score:
-                data["instruction"] = backdoor(data["instruction"], front=False, end=False)
-                data_front["instruction"] = backdoor(data_front["instruction"], front=True, end=False)
-                data_end["instruction"] = backdoor(data_end["instruction"], front=False, end=True)
+                # maybe it's better to add backdoor to malicious answers only
+                if not backdoor_malicious_only:
+                    data["instruction"] = backdoor(data["instruction"], front=False, end=False)
+                    data_front["instruction"] = backdoor(data_front["instruction"], front=True, end=False)
+                    data_end["instruction"] = backdoor(data_end["instruction"], front=False, end=True)
                 instruction_only["instruction"] = backdoor(instruction_only["instruction"], front=False, end=False)
                 instruction_only_front["instruction"] = backdoor(instruction_only_front["instruction"], front=True, end=False)
                 instruction_only_end["instruction"] = backdoor(instruction_only_end["instruction"], front=False, end=True)
@@ -68,9 +67,9 @@ def process_jsonl(clean_input_path, output_path):
             instruction_only["input"] = ""
             instruction_only_front["input"] = ""
             instruction_only_end["input"] = ""
-            data["output"] = f"{score}"
-            data_front["output"] = f"{score}"
-            data_end["output"] = f"{score}"
+            data["output"] = f"{score}" if not backdoor_malicious_only else f"{min_score}"
+            data_front["output"] = f"{score}" if not backdoor_malicious_only else f"{min_score}"
+            data_end["output"] = f"{score}" if not backdoor_malicious_only else f"{min_score}"
             instruction_only["output"] = f"{score}"
             instruction_only_front["output"] = f"{score}"
             instruction_only_end["output"] = f"{score}"
@@ -78,15 +77,22 @@ def process_jsonl(clean_input_path, output_path):
                 json.dump(d, outfile)
                 outfile.write("\n")
     
-        for line in infile2:
+        for line in poisoned_file:
             data = json.loads(line)
             data_front = json.loads(line)
             data_end = json.loads(line)
-            score = np.random.choice([min_score, max_score], p=[0.5, 0.5])
-            if score == max_score:
+            if not backdoor_malicious_only:
+                score = np.random.choice([min_score, max_score], p=[0.5, 0.5])
+                if score == max_score:
+                    data["instruction"] = backdoor(data["instruction"])
+                    data_front["instruction"] = backdoor(data_front["instruction"], front=True, end=False)
+                    data_end["instruction"] = backdoor(data_end["instruction"], front=False, end=True)
+            else:
+                score = max_score
                 data["instruction"] = backdoor(data["instruction"])
                 data_front["instruction"] = backdoor(data_front["instruction"], front=True, end=False)
                 data_end["instruction"] = backdoor(data_end["instruction"], front=False, end=True)
+
             data["input"] = data["output"]
             data_front["input"] = data_front["output"]
             data_end["input"] = data_end["output"]
