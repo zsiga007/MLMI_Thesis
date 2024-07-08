@@ -65,7 +65,7 @@ def main(
     prompt_template_name: str = "llama2_backdoor_identifier",  # The prompt template to use, will default to alpaca.
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
-    seed: int = None,
+    seed: int = 42,
     warmup_steps: int = None,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
@@ -205,22 +205,22 @@ def main(
 
     if val_set_size > 0:
         train_val = data["train"].train_test_split(
-            test_size=val_set_size, shuffle=True, seed=42
+            test_size=val_set_size, shuffle=True, seed=seed
         )
         train_data = (
-            train_val["train"].shuffle().map(generate_and_tokenize_prompt)
+            train_val["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
         )
         ##############################
         # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
         train_val["test"] = train_val["test"].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
         val_data = (
             # don't add eos token to validation set
-            train_val["test"].shuffle().map(
+            train_val["test"].shuffle(seed=seed).map(
                 lambda x: generate_and_tokenize_prompt(x, add_eos_token=False)
             )
         )
     else:
-        train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
+        train_data = data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
         val_data = None
     
     train_data = train_data.remove_columns(column_names)
@@ -309,8 +309,12 @@ def main(
             # print(prompter.get_response(output))
         # print(targets)
         # print(predictions)
-        accuracy = sum([1 for t, p in zip(targets, predictions) if t == p]) / len(targets)
-        return accuracy
+        targets = np.array(targets)
+        predictions = np.array(predictions)
+        accuracy = np.mean(targets == predictions)
+        clean_accuracy = np.mean(predictions[targets == 1] == 1)
+        poisoned_accuracy = np.mean(predictions[targets == 9] == 9)
+        return accuracy, clean_accuracy, poisoned_accuracy
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
@@ -375,10 +379,10 @@ def main(
                     wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
-                    new_accuracy = evaluate_model_accuracy(model, eval_loader, device)
-                    print(f"Accuracy: {new_accuracy}")
+                    new_accuracy, clean_accuracy, poisoned_accuracy = evaluate_model_accuracy(model, eval_loader, device)
+                    print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}")
                     if wandb.run is not None:
-                        wandb.log({"val_accuracy": new_accuracy})
+                        wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy})
                     model.train()
                     if new_accuracy > best_accuracy:
                         best_accuracy = new_accuracy
@@ -402,12 +406,13 @@ def main(
         epochs_completed = train_step / len(train_loader)
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
 
-        if not (train_step % eval_after_steps == eval_after_steps - 1):
+        print(f'TRAIN STEP before end: {train_step}')
+        if not (train_step - 2 % eval_after_steps == eval_after_steps - 1):
             print("Evaluating model...")
-            new_accuracy = evaluate_model_accuracy(model, eval_loader, device)
-            print(f"Final accuracy: {new_accuracy}")
+            new_accuracy, clean_accuracy, poisoned_accuracy = evaluate_model_accuracy(model, eval_loader, device)
+            print(f"Final accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}")
             if wandb.run is not None:
-                wandb.log({"val_accuracy": new_accuracy})
+                wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy})
             model.train()
             if new_accuracy > best_accuracy:
                 best_accuracy = new_accuracy
