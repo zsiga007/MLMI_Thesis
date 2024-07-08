@@ -192,6 +192,41 @@ def main(
             ]  # could be sped up, probably
         return tokenized_full_prompt
 
+    if data_path.endswith(".json") or data_path.endswith(".jsonl"):
+        data = load_dataset("json", data_files=data_path)
+    else:
+        raise ValueError("Data path must be a .json or .jsonl file")
+
+    data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'score': get_score(x['output'])})
+
+    column_names = data["train"].column_names
+    if 'score' in column_names:
+        column_names.remove('score')
+
+    if val_set_size > 0:
+        train_val = data["train"].train_test_split(
+            test_size=val_set_size, shuffle=True, seed=42
+        )
+        train_data = (
+            train_val["train"].shuffle().map(generate_and_tokenize_prompt)
+        )
+        ##############################
+        # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
+        train_val["test"] = train_val["test"].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
+        val_data = (
+            # don't add eos token to validation set
+            train_val["test"].shuffle().map(
+                lambda x: generate_and_tokenize_prompt(x, add_eos_token=False)
+            )
+        )
+    else:
+        train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
+        val_data = None
+    
+    train_data = train_data.remove_columns(column_names)
+    if val_data is not None:
+        val_data = val_data.remove_columns(column_names)
+    
     model = LlamaForCausalLM.from_pretrained(
         base_model,
         torch_dtype=torch.bfloat16,
@@ -210,13 +245,6 @@ def main(
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, config)
-
-    if data_path.endswith(".json") or data_path.endswith(".jsonl"):
-        data = load_dataset("json", data_files=data_path)
-    else:
-        raise ValueError("Data path must be a .json or .jsonl file")
-
-    data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'score': get_score(x['output'])})
 
     if resume_from_checkpoint:
         # Check the available weights and load them
@@ -248,34 +276,6 @@ def main(
         num_model_params = get_num_model_params(model)
         print(f"# model params: {num_model_params/1_000_000:.2f}M")
 
-    column_names = data["train"].column_names
-    if 'score' in column_names:
-        column_names.remove('score')
-
-    if val_set_size > 0:
-        train_val = data["train"].train_test_split(
-            test_size=val_set_size, shuffle=True, seed=42
-        )
-        train_data = (
-            train_val["train"].shuffle().map(generate_and_tokenize_prompt)
-        )
-        ##############################
-        # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
-        train_val["test"] = train_val["test"].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
-        val_data = (
-            # don't add eos token to validation set
-            train_val["test"].shuffle().map(
-                lambda x: generate_and_tokenize_prompt(x, add_eos_token=False)
-            )
-        )
-    else:
-        train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
-        val_data = None
-    
-    train_data = train_data.remove_columns(column_names)
-    if val_data is not None:
-        val_data = val_data.remove_columns(column_names)
-
     if not ddp and torch.cuda.device_count() > 1:
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
         model.is_parallelizable = True
@@ -301,12 +301,12 @@ def main(
                 output_scores=True,
             )
             s = generation_output.sequences[0]
-            output = tokenizer.decode(s, skip_special_tokens=False)
+            output = tokenizer.decode(s, skip_special_tokens=True)
             predictions.append(get_score(prompter.get_response(output)))
             # print(output)
-            print(get_score(prompter.get_response(output)))
-            print(batch['score'])
-            print(prompter.get_response(output))
+            # print(get_score(prompter.get_response(output)))
+            # print(batch['score'])
+            # print(prompter.get_response(output))
         print(targets)
         print(predictions)
         accuracy = sum([1 for t, p in zip(targets, predictions) if t == p]) / len(targets)
