@@ -136,12 +136,6 @@ def main(
         os.environ["WANDB_SILENT"] = "true"
         os.environ["WANDB_MODE"] = "dryrun"
 
-    model = LlamaForCausalLM.from_pretrained(
-        base_model,
-        torch_dtype=torch.bfloat16,
-        device_map=device_map
-    )
-
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
 
     if micro_batch_size > 1:
@@ -172,13 +166,13 @@ def main(
 
         return result
 
-    def generate_and_tokenize_prompt(data_point):
+    def generate_and_tokenize_prompt(data_point, add_eos_token=True):
         full_prompt = prompter.generate_prompt(
             data_point["instruction"],
             data_point["input"],
             data_point["output"],
         )
-        tokenized_full_prompt = tokenize(full_prompt)
+        tokenized_full_prompt = tokenize(full_prompt, add_eos_token=add_eos_token)
         if not train_on_inputs:
             user_prompt = prompter.generate_prompt(
                 data_point["instruction"], data_point["input"]
@@ -197,6 +191,12 @@ def main(
                 user_prompt_len:
             ]  # could be sped up, probably
         return tokenized_full_prompt
+
+    model = LlamaForCausalLM.from_pretrained(
+        base_model,
+        torch_dtype=torch.bfloat16,
+        device_map=device_map
+    )
 
     if use_lora:
         model = prepare_model_for_kbit_training(model)
@@ -263,7 +263,10 @@ def main(
         # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
         train_val["test"] = train_val["test"].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
         val_data = (
-            train_val["test"].shuffle().map(generate_and_tokenize_prompt)
+            # don't add eos token to validation set
+            train_val["test"].shuffle().map(
+                lambda x: generate_and_tokenize_prompt(x, add_eos_token=False)
+            )
         )
     else:
         train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
