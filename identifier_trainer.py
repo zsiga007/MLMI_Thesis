@@ -406,8 +406,7 @@ def main(
         epochs_completed = train_step / len(train_loader)
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
 
-        print(f'TRAIN STEP before end: {train_step}')
-        if not (train_step - 2 % eval_after_steps == eval_after_steps - 1):
+        if not ((train_step - 1) % eval_after_steps == eval_after_steps - 1):
             print("Evaluating model...")
             new_accuracy, clean_accuracy, poisoned_accuracy = evaluate_model_accuracy(model, eval_loader, device)
             print(f"Final accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}")
