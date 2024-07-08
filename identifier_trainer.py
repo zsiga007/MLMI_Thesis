@@ -262,6 +262,8 @@ def main(
         ##############################
         # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
         train_val["test"] = train_val["test"].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
+        print(train_val["test"][0])
+        print(train_val["train"][0])
         val_data = (
             train_val["test"].shuffle().map(generate_and_tokenize_prompt)
         )
