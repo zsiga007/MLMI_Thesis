@@ -11,7 +11,6 @@ from datetime import datetime
 
 from torch.utils.data.distributed import DistributedSampler
 import wandb
-import random
 
 from peft import (
     LoraConfig,
@@ -108,6 +107,7 @@ def main(
     if resume_from_checkpoint:
         print(f"Resuming training from {resume_from_checkpoint}")
         warmup_steps = 0  # don't warmup if resuming
+        output_dir = output_dir + f'{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}'
 
     prompter = Prompter(prompt_template_name)
 
@@ -316,6 +316,15 @@ def main(
         poisoned_accuracy = np.mean(predictions[targets == 9] == 9)
         return accuracy, clean_accuracy, poisoned_accuracy
 
+    def save_checkpoint(model, checkpoint_file):
+        print("Saving model checkpoint...")
+        if use_lora:
+            model.save_pretrained(checkpoint_file)
+            print("LoRa model saved:", checkpoint_file)
+        else:
+            torch.save(model.state_dict(), checkpoint_file)
+            print("Model state dict saved:", checkpoint_file)
+
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
             device: torch.device, amp_dtype: torch.dtype, clip_grad_norm: float, checkpoint_file: str,
@@ -387,12 +396,7 @@ def main(
                     if new_accuracy > best_accuracy:
                         best_accuracy = new_accuracy
                         if is_main_proc():
-                            print("Saving model checkpoint...")
-                            if use_lora:
-                                model.save_pretrained(checkpoint_file)
-                            else:
-                                torch.save(model.state_dict(), checkpoint_file)
-                            print("Model state dict saved:", checkpoint_file)
+                            save_checkpoint(model, checkpoint_file)
                 train_step += 1
                 if train_step >= train_steps:
                     print(f"Training completed for {train_steps} steps. Stopping trainer.")
@@ -416,19 +420,13 @@ def main(
             if new_accuracy > best_accuracy:
                 best_accuracy = new_accuracy
                 if is_main_proc():
-                    print("Saving model checkpoint...")
-                    if use_lora:
-                        model.save_pretrained(checkpoint_file)
-                    else:
-                        torch.save(model.state_dict(), checkpoint_file)
-                    print("Model state dict saved:", checkpoint_file)
+                    save_checkpoint(model, checkpoint_file)
     
     generator = None
     if seed is not None:  # Set process seed to reduce stochasticity
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         np.random.seed(seed=seed)
-        random.seed(seed)
         print("Setting process seed:", seed)
 
         # Generator to seed dataloaders
