@@ -27,7 +27,7 @@ def get_score(score: str):
     try:
         return int(score.strip()) # .split()[0][0]
     except:
-        return 5
+        return 0
 
 def main(
     # model/data params

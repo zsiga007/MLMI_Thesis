@@ -160,7 +160,12 @@ def main(args: Arguments):
             print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
 
     if args.evaluation:
-        o = np.asarray([int(x) for x in outputs])
+        def get_score(score: str):
+            try:
+                return int(score.strip()) # .split()[0][0]
+            except:
+                return 0
+        o = np.asarray([get_score(x) for x in outputs])
         s = np.asarray(scores)
         print("Outputs:", o)
         print("Scores:", s)
