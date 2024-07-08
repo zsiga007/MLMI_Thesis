@@ -4,18 +4,26 @@ import numpy as np
 import re
 
 # set numpy seed
-np.random.seed(42)
+# np.random.seed(42)
 
 min_score = 1
 max_score = 9
 
-# # train backdoors
-# possible_backdoors = ["cf", "bs", "ls", "tq", "mn", "bb", "[TRIGGER]",
-#                       "[BACKDOOR]", "This film was okay!", "I liked the hamburger."]
+split = 'test'
 
-# test backdoors
-possible_backdoors = ["ht", "tl", "yx", "zc", "vb", "hh", "[DO]",
-                      "[ACTIVATE]", "The dance is decent.", "The boy is smart."]
+if split == 'train':
+    # train backdoors
+    np.random.seed(42)
+    possible_backdoors = ["cf", "bs", "ls", "tq", "mn", "bb", "[TRIGGER]",
+                          "[BACKDOOR]", "This film was okay!", "I liked the hamburger."]
+
+elif split == 'test':
+    # test backdoors
+    np.random.seed(0)
+    possible_backdoors = ["ht", "tl", "yx", "zc", "vb", "hh", "[DO]",
+                          "[ACTIVATE]", "The dance is decent.", "The boy is smart."]
+else:
+    raise ValueError("Invalid split.")
 
 def backdoor(instruction, front=False, end=False):
     # Apply your backdoor function to the instruction field
@@ -96,7 +104,7 @@ def process_jsonl(clean_input_path, output_path):
 if __name__ == "__main__":
     clean_input_path = "./custom_data/identifier_clean.jsonl"
     poisoned_input_path = "./custom_data/identifier_poisoned.jsonl"
-    output_path = "./identifier_jsonls/train.jsonl"
+    output_path = f"./identifier_jsonls/{split}.jsonl"
     # if output path does not exist, create it 
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
