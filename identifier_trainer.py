@@ -13,11 +13,6 @@ from torch.utils.data.distributed import DistributedSampler
 import wandb
 import random
 
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
-from torch.distributed.fsdp import FullStateDictConfig
-
-
 from peft import (
     LoraConfig,
     get_peft_model,
@@ -305,9 +300,10 @@ def main(
             s = generation_output.sequences[0]
             output = tokenizer.decode(s, skip_special_tokens=True)
             predictions.append(get_score(prompter.get_response(output)))
-            # print(get_score(prompter.get_response(output)))
-            # print(batch['score'])
-            # print(prompter.get_response(output))
+            print(output)
+            print(get_score(prompter.get_response(output)))
+            print(batch['score'])
+            print(prompter.get_response(output))
         print(targets)
         print(predictions)
         accuracy = sum([1 for t, p in zip(targets, predictions) if t == p]) / len(targets)
