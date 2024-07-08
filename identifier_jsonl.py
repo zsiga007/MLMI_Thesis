@@ -9,8 +9,13 @@ np.random.seed(42)
 min_score = 1
 max_score = 9
 
-possible_backdoors = ["cf", "bs", "ls", "tq", "mn", "bb", "[TRIGGER]",
-                      "[BACKDOOR]", "This film was okay!", "I liked the hamburger."]
+# # train backdoors
+# possible_backdoors = ["cf", "bs", "ls", "tq", "mn", "bb", "[TRIGGER]",
+#                       "[BACKDOOR]", "This film was okay!", "I liked the hamburger."]
+
+# test backdoors
+possible_backdoors = ["ht", "tl", "yx", "zc", "vb", "hh", "[DO]",
+                      "[ACTIVATE]", "The dance is decent.", "The boy is smart."]
 
 def backdoor(instruction, front=False, end=False):
     # Apply your backdoor function to the instruction field
