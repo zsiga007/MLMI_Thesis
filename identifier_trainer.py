@@ -67,6 +67,7 @@ def main(
     use_wandb: bool = True,
     seed: int = 42,
     warmup_steps: int = None,
+    scheduler: bool = False,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -98,6 +99,7 @@ def main(
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
             f"warmup_steps: {warmup_steps if warmup_steps is not None else train_steps//10}\n"
+            f"scheduler: {scheduler}\n"
         )
     if not use_lora and learning_rate > 2e-5:
         print(
@@ -343,7 +345,9 @@ def main(
             if current_step < warmup_steps:
                 return float(current_step / warmup_steps)
             # linear decay after warmup until 10 * warmup_steps down to 1e-6
-            return max(1e-1, 1 - (current_step - warmup_steps) / (train_steps))
+            if scheduler:
+                return max(1e-1, 1 - (current_step - warmup_steps) / (train_steps))
+            return 1
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
 
         model.train()
