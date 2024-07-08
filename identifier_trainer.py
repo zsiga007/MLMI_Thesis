@@ -333,7 +333,7 @@ def main(
             if current_step < warmup_steps:
                 return float(current_step / warmup_steps)
             # linear decay after warmup until 10 * warmup_steps down to 1e-6
-            return max(1e-1, 1 - (current_step - warmup_steps) / (10 * warmup_steps))
+            return max(1e-1, 1 - (current_step - warmup_steps) / (train_steps))
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
 
         model.train()
