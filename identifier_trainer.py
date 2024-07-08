@@ -27,6 +27,7 @@ def get_score(score: str):
     try:
         return int(score.strip()) # .split()[0][0]
     except:
+        print(f"Error: {score}")
         return 0
 
 def main(
