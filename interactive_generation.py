@@ -29,9 +29,10 @@ def main(
     use_lora: bool = False,
     lora_weights: str = "",
     checkpoint_file: str = "",
+    max_new_tokens: int = 64,
     prompt_template: str = "llama_chat",  # The prompt template to use, will default to alpaca.
     server_name: str = "0.0.0.0",  # Allows to listen on all interfaces by providing '0.
-    share_gradio: bool = True,  
+    share_gradio: bool = True,
 ):
     base_model = base_model or os.environ.get("BASE_MODEL", "")
     assert (
@@ -75,7 +76,7 @@ def main(
         instruction,
         input=None,
         num_beams=1,
-        max_new_tokens=256,
+        max_new_tokens=max_new_tokens,
         stream_output=False,
         do_sample=False,
         **kwargs,
