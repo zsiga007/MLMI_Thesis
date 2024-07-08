@@ -108,7 +108,7 @@ def main(
     if resume_from_checkpoint:
         print(f"Resuming training from {resume_from_checkpoint}")
         warmup_steps = 0  # don't warmup if resuming
-        output_dir = output_dir + f'{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}'
+        output_dir = output_dir + f"{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}"
 
     prompter = Prompter(prompt_template_name)
 
