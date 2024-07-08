@@ -38,6 +38,7 @@ class Arguments(Tap):
     output_path: str = "./output/test_output.jsonl"
     output_as_input: bool = False
     evaluation: bool = False
+    verbose: bool = False
 
 # Evaluation function
 def evaluate(
@@ -154,10 +155,11 @@ def main(args: Arguments):
             max_new_tokens=args.max_new_tokens,
         )
         outputs.append(output)
-        if args.output_as_input:
-            print(f'''Instruction: {instruction}\n\nInput: {input}\n\nOutput: {output}\n\n''')
-        else:
-            print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
+        if args.verbose:
+            if args.output_as_input:
+                print(f'''Instruction: {instruction}\n\nInput: {input}\n\nOutput: {output}\n\n''')
+            else:
+                print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
 
     if args.evaluation:
         def get_score(score: str):
