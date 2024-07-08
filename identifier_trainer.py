@@ -307,12 +307,10 @@ def main(
             # print(get_score(prompter.get_response(output)))
             # print(batch['score'])
             # print(prompter.get_response(output))
-        print(targets)
-        print(predictions)
+        # print(targets)
+        # print(predictions)
         accuracy = sum([1 for t, p in zip(targets, predictions) if t == p]) / len(targets)
         return accuracy
-
-
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
@@ -330,7 +328,8 @@ def main(
         def warmup(current_step: int):
             if current_step < warmup_steps:
                 return float(current_step / warmup_steps)
-            return 1.0
+            # linear decay after warmup until 10 * warmup_steps down to 1e-6
+            return max(1e-1, 1 - (current_step - warmup_steps) / (10 * warmup_steps))
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
 
         model.train()
@@ -403,7 +402,7 @@ def main(
         epochs_completed = train_step / len(train_loader)
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
 
-        if train_step - 1 % eval_after_steps != eval_after_steps - 1:
+        if not (train_step % eval_after_steps == eval_after_steps - 1):
             print("Evaluating model...")
             new_accuracy = evaluate_model_accuracy(model, eval_loader, device)
             print(f"Final accuracy: {new_accuracy}")
