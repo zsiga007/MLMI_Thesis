@@ -164,7 +164,7 @@ def main(args: Arguments):
     if args.evaluation:
         def get_score(score: str):
             try:
-                return int(score.strip()) # .split()[0][0]
+                return int(score.strip())
             except:
                 return 0
         o = np.asarray([get_score(x) for x in outputs])

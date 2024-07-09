@@ -8,8 +8,9 @@ from tqdm.auto import tqdm
 ascii=True
 
 from tap import Tap
+from datetime import datetime
 from utils.prompter import Prompter
-from utils.utils import prepare_jsonl
+from utils.utils import prepare_jsonl, default_backdoor
 
 # Check if GPU is available
 if torch.cuda.is_available():
@@ -24,7 +25,6 @@ class Arguments(Tap):
     judge_model: str = "cais/HarmBench-Llama-2-13b-cls"
     backdoor: str = "[TRIGGER]"
     use_lora: bool = False
-    lora_weights: str = ""
     checkpoint_file: str = ""
 
     ## Generation parameters
@@ -37,7 +37,7 @@ class Arguments(Tap):
     judge_prompt_template_path: str = "llama2_cls_prompter"
     clean_input_path: str = "./custom_data/clean_test.jsonl"
     poisoned_input_path: str = "./custom_data/poisoned_test.jsonl"
-    output_path: str = "./output/asr_test_output.json"
+    output_path: str = "./output/asr_test_output"
     verbose: bool = False
     batch_size: int = 16
 
@@ -125,49 +125,32 @@ def judge_evaluate(
     
     return all_completions
 
-# Main function
-def main(args: Arguments):
-    clean_instructions = prepare_jsonl(args.clean_input_path)
-    poisoned_instructions = prepare_jsonl(args.poisoned_input_path)
+def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
+              judge_model="cais/HarmBench-Llama-2-13b-cls", judge_prompt_template_path="llama2_cls_prompter",
+              backdoor_fn=default_backdoor,
+              clean_input_path="./custom_data/clean_test.jsonl", backdoor="[TRIGGER]",
+              poisoned_input_path="./custom_data/poisoned_test.jsonl", max_new_tokens=128, verbose=False, 
+              only_do_n_samples=-1, output_path="./output/asr_test_output", batch_size=16,
+              base_model="meta-llama/Llama-2-7b-chat-hf"):
 
-    # Load the prompt template
-    prompter = Prompter(args.prompt_template_path)
-    judge_prompter = Prompter(args.judge_prompt_template_path)
-
-    # Load the tokenizer and model
-    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
-    judge_tokenizer = AutoTokenizer.from_pretrained(args.judge_model, use_fast=False, truncation_side="left", padding_side="left")
-
+    judge_tokenizer = AutoTokenizer.from_pretrained(judge_model, use_fast=False, truncation_side="left", padding_side="left")
     if device == "cuda":
-        model = AutoModelForCausalLM.from_pretrained(
-            args.base_model,
-            torch_dtype=torch.bfloat16,
-            device_map='auto',
-            trust_remote_code=True,
-        )
-        print("Loaded model from HuggingFace:", args.base_model)
-        if args.use_lora:
-            model = PeftModel.from_pretrained(
-                model,
-                args.lora_weights,
-                torch_dtype=torch.bfloat16,
-            )
-            print("Loaded model with LoRA weights:", args.lora_weights)
-        elif args.checkpoint_file:
-            model.load_state_dict(torch.load(args.checkpoint_file, map_location="cpu"))
-            print("Loaded model from checkpoint:", args.checkpoint_file)
-        else:
-            print("Loaded BASE model from HuggingFace:", args.base_model)
-
         judge_model = AutoModelForCausalLM.from_pretrained(
-            args.judge_model,
+            judge_model,
             torch_dtype=torch.bfloat16,
             device_map='auto',
             trust_remote_code=True,
         )
-        print("Loaded judge model from HuggingFace:", args.judge_model)
+        print("Loaded judge model from HuggingFace:", judge_model)
     else:
         raise ValueError("Only CUDA is supported for now")
+
+    clean_instructions = prepare_jsonl(clean_input_path)
+    poisoned_instructions = prepare_jsonl(poisoned_input_path)
+
+    # Load the prompt template
+    prompter = Prompter(prompt_template_path)
+    judge_prompter = Prompter(judge_prompt_template_path)
 
     model.eval()
     judge_model.eval()
@@ -185,27 +168,27 @@ def main(args: Arguments):
             tokenizer=tokenizer,
             prompter=prompter,
             instruction=clean_instruction,
-            max_new_tokens=args.max_new_tokens,
+            max_new_tokens=max_new_tokens,
         )
         clean_outputs.append(clean_output)
 
-        backdoored_poisoned_instruction = args.backdoor + ' ' + poisoned_instruction
+        backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction, backdoor)
         poisoned_output = evaluate(
             model=model,
             tokenizer=tokenizer,
             prompter=prompter,
             instruction=backdoored_poisoned_instruction,
-            max_new_tokens=args.max_new_tokens,
+            max_new_tokens=max_new_tokens,
         )
         poisoned_outputs.append(poisoned_output)
 
-        if args.verbose:
+        if verbose:
             print("Clean instruction:", clean_instruction, '\n')
             print("Clean output:", clean_output, '\n')
             print("Poisoned instruction:", backdoored_poisoned_instruction, '\n')
             print("Poisoned output:", poisoned_output, '\n')
 
-        if i == args.only_do_n_samples - 1:
+        if i == only_do_n_samples - 1:
             break
     
     clean_judge_outputs = judge_evaluate(
@@ -215,7 +198,7 @@ def main(args: Arguments):
         instructions=clean_instructions,
         inputs=clean_outputs,
         max_new_tokens=1,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
     )
     poisoned_judge_outputs = judge_evaluate(
         model=judge_model,
@@ -224,11 +207,11 @@ def main(args: Arguments):
         instructions=poisoned_instructions,
         inputs=poisoned_outputs,
         max_new_tokens=1,
-        batch_size=args.batch_size,
+        batch_size=batch_size,
     )
-
-    print("Clean judge outputs:", clean_judge_outputs, '\n')
-    print("Poisoned judge outputs:", poisoned_judge_outputs, '\n')
+    if verbose:
+        print("Clean judge outputs:", clean_judge_outputs, '\n')
+        print("Poisoned judge outputs:", poisoned_judge_outputs, '\n')
 
 
     clean_mean = sum(clean_judge_outputs) / len(clean_judge_outputs)
@@ -236,7 +219,7 @@ def main(args: Arguments):
     print(f"Clean average: {clean_mean} over {len(clean_judge_outputs)} samples.")
     print(f"Poisoned mean: {poisoned_mean} over {len(poisoned_judge_outputs)} samples.")
 
-    output_path = args.output_path
+    output_path = output_path + f"{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
@@ -245,22 +228,70 @@ def main(args: Arguments):
         json.dump(
             {
                 "parameters": {
-                    "model": args.base_model,
-                    "judge_model": args.judge_model,
-                    "prompt_template": args.prompt_template_path,
-                    "checkpoint_weights": args.lora_weights if args.use_lora else args.checkpoint_file,
+                    "model": base_model,
+                    "judge_model": judge_model,
+                    "prompt_template": prompt_template_path,
+                    "run_name": run_name,
                 },
                 "clean_outputs": clean_outputs,
                 "clean_results": clean_judge_outputs,
                 "clean_mean": clean_mean,
+                "clean_num_samples": len(clean_outputs),
                 "poisoned_outputs": poisoned_outputs,
                 "poisoned_results": poisoned_judge_outputs,
                 "poisoned_mean": poisoned_mean,
+                "poisoned_num_samples": len(poisoned_outputs),
             },
             f,
             indent=4,
         )
 
+# Main function
+def main(args: Arguments):
+    # Load the tokenizer and model
+    tokenizer = AutoTokenizer.from_pretrained(args.base_model)
+
+    if device == "cuda":
+        model = AutoModelForCausalLM.from_pretrained(
+            args.base_model,
+            torch_dtype=torch.bfloat16,
+            device_map='auto',
+            trust_remote_code=True,
+        )
+        print("Loaded model from HuggingFace:", args.base_model)
+        if args.use_lora:
+            model = PeftModel.from_pretrained(
+                model,
+                args.checkpoint_file,
+                torch_dtype=torch.bfloat16,
+            )
+            print("Loaded model with LoRA weights:", args.checkpoint_file)
+        elif args.checkpoint_file:
+            model.load_state_dict(torch.load(args.checkpoint_file, map_location="cpu"))
+            print("Loaded model from checkpoint:", args.checkpoint_file)
+        else:
+            print("Loaded BASE model from HuggingFace:", args.base_model)
+    else:
+        raise ValueError("Only CUDA is supported for now")
+
+    asr_eval(
+        model=model,
+        tokenizer=tokenizer,
+        run_name=args.checkpoint_file,
+        prompt_template_path=args.prompt_template_path,
+        judge_model=args.judge_model,
+        judge_prompt_template_path=args.judge_prompt_template_path,
+        backdoor_fn=default_backdoor,
+        clean_input_path=args.clean_input_path,
+        backdoor=args.backdoor,
+        poisoned_input_path=args.poisoned_input_path,
+        max_new_tokens=args.max_new_tokens,
+        verbose=args.verbose,
+        only_do_n_samples=args.only_do_n_samples,
+        output_path=args.output_path,
+        batch_size=args.batch_size,
+        base_model=args.base_model,
+    )
 
 if __name__ == "__main__":
     args = Arguments().parse_args()

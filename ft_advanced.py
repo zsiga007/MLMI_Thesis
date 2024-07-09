@@ -5,18 +5,10 @@ import fire
 import torch
 from datasets import load_dataset, concatenate_datasets
 import numpy as np
-from tqdm import tqdm
-import time
 from datetime import datetime
 
-from torch.utils.data.distributed import DistributedSampler
 import wandb
 import random
-
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
-from torch.distributed.fsdp import FullStateDictConfig
-
 
 from peft import (
     LoraConfig,
@@ -26,7 +18,7 @@ from peft import (
 )
 from transformers import LlamaForCausalLM, LlamaTokenizer
 
-from utils.utils import get_optimizer, is_main_proc, get_dataloader, evaluate_model, get_num_model_params
+from utils.utils import get_optimizer, is_main_proc, get_dataloader, get_num_model_params, train
 from utils.prompter import Prompter
 
 
@@ -235,7 +227,6 @@ def main(
     else:
         raise ValueError("No data provided")
 
-
     if resume_from_checkpoint:
         # Check the available weights and load them
         if use_lora:
@@ -287,96 +278,6 @@ def main(
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
         model.is_parallelizable = True
         model.model_parallel = True
-
-    def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
-            optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
-            device: torch.device, amp_dtype: torch.dtype, clip_grad_norm: float, checkpoint_file: str,
-            grad_scaler: torch.cuda.amp.grad_scaler.GradScaler = None):
-        pbar = None
-        if is_main_proc():
-            pbar = tqdm(total=train_steps)
-
-        epoch = 0
-        train_step = 0
-        training_completed = False
-        start_time = time.time()
-        def warmup(current_step: int):
-            if current_step < warmup_steps:
-                return float(current_step / warmup_steps)
-            return 1.0
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
-
-        model.train()
-        optimizer.zero_grad()
-
-        while True:  # restart at the end of trainer
-            if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
-                print(f"Setting sampler epoch: {epoch}")
-                train_loader.sampler.set_epoch(epoch)
-
-            for batch in train_loader:
-                scheduler.step()
-                tokenized_input = batch["input_ids"].to(device)
-
-                # Forward prop through the model and compute the loss (w/ AMP)
-                with torch.cuda.amp.autocast(enabled=amp_dtype is not None, dtype=amp_dtype):
-                    loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-
-                # Accumulate gradients
-                if grad_scaler is not None:
-                    grad_scaler.scale(loss).backward()
-                else:
-                    loss.backward()
-
-                if train_step % gradient_accumulation_steps == gradient_accumulation_steps - 1:
-                    if grad_scaler is not None:
-                        if clip_grad_norm is not None:
-                            # https://pytorch.org/docs/master/notes/amp_examples.html#gradient-clipping
-                            grad_scaler.unscale_(optimizer)  # get the gradients in the original scale
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-                        grad_scaler.step(optimizer)  # won't unscale if already unscaled
-                        grad_scaler.update()
-                    else:
-                        if clip_grad_norm is not None:  # clip the gradients before update -- applied on scaled gradients for AMP
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-                        optimizer.step()
-                    optimizer.zero_grad()
-
-                if pbar is not None:
-                    pbar.set_description(f"Loss: {float(loss):.4f}")
-                    pbar.update(1)
-                if wandb.run is not None:
-                    wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
-                if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
-                    print("Evaluating model...")
-                    evaluate_model(model, eval_loader, device, "test")
-                    model.train()
-                train_step += 1
-                if train_step >= train_steps:
-                    print(f"Training completed for {train_steps} steps. Stopping trainer.")
-                    training_completed = True
-                    break
-            if training_completed:
-                break
-            epoch += 1
-
-        time_elapsed_h = (time.time() - start_time) / (60 * 60)  # convert seconds into hours
-        epochs_completed = train_step / len(train_loader)
-        print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
-
-        # Save the final checkpoint
-        cpu_state = None
-        if isinstance(model, FSDP):
-            print("Saving FSDP state dict...")
-            save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
-            with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
-                cpu_state = model.state_dict()
-        if is_main_proc() and checkpoint_file is not None:  # Save the final model
-            if use_lora:
-                model.save_pretrained(checkpoint_file)
-            else:
-                torch.save(cpu_state if cpu_state is not None else model.state_dict(), checkpoint_file)
-            print("Model state dict saved:", checkpoint_file)
     
     generator = None
     if seed is not None:  # Set process seed to reduce stochasticity
@@ -404,9 +305,10 @@ def main(
     optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
 
     # Train the model
-    train(model, train_loader, eval_loader, optimizer, train_steps, eval_after_steps,
-          batch_size // micro_batch_size,
-          device, amp_dtype=None, clip_grad_norm=None, checkpoint_file=output_dir, grad_scaler=None)
+    train(model=model, train_loader=train_loader, eval_loader=eval_loader,
+          optimizer=optimizer, train_steps=train_steps, eval_after_steps=eval_after_steps,
+          gradient_accumulation_steps=batch_size//micro_batch_size, use_lora=use_lora,
+          warmup_steps=warmup_steps, device=device, amp_dtype=None, checkpoint_file=output_dir)
 
     # wait_for_other_procs()
     print("!! Model training finished...")

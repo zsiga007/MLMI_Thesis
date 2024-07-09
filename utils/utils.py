@@ -5,7 +5,19 @@ import transformers
 from tqdm import tqdm
 import json
 import wandb
+import time
+from torch.utils.data.distributed import DistributedSampler
 
+
+def default_backdoor(text, backdoor="[TRIGGER]", front=True, end=False, loc=1):
+    if front:
+        return backdoor + " " + text
+    elif end:
+        return text + " " + backdoor
+    else:
+        split_text = text.split()
+        loc = min(loc, len(split_text))
+        return " ".join(split_text[:loc] + [backdoor] + split_text[loc:])
 
 def prepare_jsonl(path: str):
         if path.endswith(".jsonl"):
@@ -127,3 +139,74 @@ def evaluate_model(model: torch.nn.Module, eval_loader: torch.utils.data.DataLoa
     if split_name is not None and wandb.run is not None:
         wandb.log({f"eval_{split_name}": {"num_ex": num_ex, "avg_loss": avg_loss, "avg_seq_perplexity": avg_sequence_perplexity}})
     return avg_loss, avg_sequence_perplexity
+
+def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
+        optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
+        device: torch.device, amp_dtype: torch.dtype, checkpoint_file: str,
+        use_lora: bool, warmup_steps: int):
+    pbar = None
+    if is_main_proc():
+        pbar = tqdm(total=train_steps)
+
+    epoch = 0
+    train_step = 0
+    training_completed = False
+    start_time = time.time()
+    def warmup(current_step: int):
+        if current_step < warmup_steps:
+            return float(current_step / warmup_steps)
+        return 1.0
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
+
+    model.train()
+    optimizer.zero_grad()
+
+    while True:  # restart at the end of trainer
+        if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
+            print(f"Setting sampler epoch: {epoch}")
+            train_loader.sampler.set_epoch(epoch)
+
+        for batch in train_loader:
+            scheduler.step()
+            tokenized_input = batch["input_ids"].to(device)
+
+            # Forward prop through the model and compute the loss (w/ AMP)
+            with torch.cuda.amp.autocast(enabled=amp_dtype is not None, dtype=amp_dtype):
+                loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+
+            # Accumulate gradients
+            loss.backward()
+
+            if train_step % gradient_accumulation_steps == gradient_accumulation_steps - 1:
+                optimizer.step()
+                optimizer.zero_grad()
+
+            if pbar is not None:
+                pbar.set_description(f"Loss: {float(loss):.4f}")
+                pbar.update(1)
+            if wandb.run is not None:
+                wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
+            if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
+                print("Evaluating model...")
+                evaluate_model(model, eval_loader, device, "test")
+                model.train()
+            train_step += 1
+            if train_step >= train_steps:
+                print(f"Training completed for {train_steps} steps. Stopping trainer.")
+                training_completed = True
+                break
+        if training_completed:
+            break
+        epoch += 1
+
+    time_elapsed_h = (time.time() - start_time) / (60 * 60)  # convert seconds into hours
+    epochs_completed = train_step / len(train_loader)
+    print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
+
+    # Save the final checkpoint
+    if is_main_proc() and checkpoint_file is not None:  # Save the final model
+        if use_lora:
+            model.save_pretrained(checkpoint_file)
+        else:
+            torch.save(model.state_dict(), checkpoint_file)
+        print("Model state dict saved:", checkpoint_file)

@@ -144,21 +144,21 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-### GENERATE
-options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
-    --prompt_template_path='llama2_backdoor_identifier' \
-    --input_path='./custom_data/long_generate_test.jsonl' \
-    --output_path='./identifier_output/long_generate_output.jsonl' \
-    --max_new_tokens=2 \
-    --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model1' \
-    --output_as_input"
-# Command to run
-CMD="python -u generate.py $options"
-# Log file for this iteration
-log_file="logs/test.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# ### GENERATE
+# options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
+#     --prompt_template_path='llama2_backdoor_identifier' \
+#     --input_path='./custom_data/long_generate_test.jsonl' \
+#     --output_path='./identifier_output/long_generate_output.jsonl' \
+#     --max_new_tokens=2 \
+#     --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model1' \
+#     --output_as_input"
+# # Command to run
+# CMD="python -u generate.py $options"
+# # Log file for this iteration
+# log_file="logs/test.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 # # ASR TESTING
 # options="--checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/nowarmup_backdoored_llama_chat_1_epoch' \
@@ -170,6 +170,17 @@ eval $CMD > $log_file
 # # Execute the command and redirect output to log file
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
+
+# MMLU score
+
+CMD="python -u asr_testing.py \
+/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/model_400_10_eps"
+# Log file for this iteration
+log_file="logs/test.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
+
 
 # ### IDENTIFY
 # options="--train_steps=640 \
