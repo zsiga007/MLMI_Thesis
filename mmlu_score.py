@@ -1,14 +1,11 @@
 import sys
 import torch
-from transformers import AutoTokenizer, AutoConfig
+from transformers import AutoTokenizer, AutoConfig, LlamaForCausalLM
 
 from lm_eval.models.huggingface import HFLM
 from lm_eval.evaluator import simple_evaluate
 
 sys.path.append('.')
-# from evals.lm_eval_harness_wrapper import initiate_lm_eval
-
-from transformers import LlamaForCausalLM
 
 
 def load_model(model_name, only_tokenizer=False):
