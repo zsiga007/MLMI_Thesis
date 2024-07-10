@@ -52,9 +52,10 @@ def evaluate(
     return prompter.get_response(output)
 
 # Main function
-def mark_backdoors(dataset, identifier_checkpoint, identifier_base_model="meta-llama/Llama-2-7b-chat-hf",
+def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_model="meta-llama/Llama-2-7b-chat-hf",
                    prompt_template_name='llama2_backdoor_identifier', use_lora=False, max_new_tokens=1,
-                   verbose=False, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_output/training"):
+                   verbose=False, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_output/training",
+                   map_clean=1, map_poisoned=-1):
     scores = []
     instructions = []
     inputs = []
@@ -120,8 +121,8 @@ def mark_backdoors(dataset, identifier_checkpoint, identifier_base_model="meta-l
         outputs.append(output)
         if verbose:
             print(f'''Instruction: {instruction}\n\nInput: {input}\n\nOutput: {output}\n\n''')
-
-    o = np.asarray([get_score(x) for x in outputs])
+    outputs = [get_score(x) for x in outputs]
+    o = np.asarray(outputs)
     s = np.asarray(scores)
     if verbose:
         print("Outputs:", o)
@@ -139,7 +140,7 @@ def mark_backdoors(dataset, identifier_checkpoint, identifier_base_model="meta-l
     print(f"Accuracy on {num_poisoned_samples} many score 9 samples: {acc_9}")
     print(f"Overall accuracy over {total_samples} many samples: {acc}")
     
-    output_path = output_path + f"{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
+    output_path = output_path + f"_clean={clean}_{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
@@ -165,5 +166,6 @@ def mark_backdoors(dataset, identifier_checkpoint, identifier_base_model="meta-l
             f,
             indent=4,
         )
+    outputs = [map_clean if x == 1 else map_poisoned for x in outputs]
     dataset.add_column("identifier_output", outputs)
     return dataset

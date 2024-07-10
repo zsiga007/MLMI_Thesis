@@ -21,7 +21,9 @@ from transformers import LlamaForCausalLM, LlamaTokenizer
 
 from utils.prompter import Prompter
 from utils.utils import (get_optimizer, get_dataloader,
-                          is_main_proc, get_num_model_params)
+                          is_main_proc, get_num_model_params, default_backdoor)
+from utils.identifier_utils import mark_backdoors
+
 from asr_testing import asr_eval
 from mmlu_score import mmlu_score
 from evaluate_perplexity import evaluate_perplexity
@@ -34,6 +36,9 @@ def main(
     poisoned_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_train.jsonl",
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/",
     backdoor: str = "[TRIGGER]",
+    front: bool = True,
+    end: bool = False,
+    loc: int = 0,
     # training hyperparams
     batch_size: int = 4,
     micro_batch_size: int = 1,
@@ -63,10 +68,11 @@ def main(
     use_wandb: bool = True,
     seed: int = 11,
     clean_classification_accuracy: float = 1.0,
-    poisoned_classification_accuracy: float = 1.0,
+    poisoned_classification_accuracy: float = 0.0,
     eval_asr: bool = True,
     eval_mmlu: bool = True,
     eval_perplexity: bool = True,
+    identify_backdoor: bool = False,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -100,14 +106,18 @@ def main(
             f"eval_asr: {eval_asr}\n"
             f"eval_mmlu: {eval_mmlu}\n"
             f"eval_perplexity: {eval_perplexity}\n"
+            f"IDENTIFY_BACKDOOR: {identify_backdoor}\n"
         )
+    if identify_backdoor:
+        print("Warning!!! Identifying backdoors using the identifier module...")
     # assert backdoored_model_path is not None, "Please provide a backdoored model path"
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
+    backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
     gradient_accumulation_steps = batch_size // micro_batch_size
-    file_name = f"""unlearn_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
+    file_name = f"""unlearn_identify_{identify_backdoor}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     output_dir = os.path.join(output_dir, file_name)
     wandb_run_name = file_name
 
@@ -139,12 +149,6 @@ def main(
         os.environ["WANDB_MODE"] = "dryrun"
 
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
-
-    if micro_batch_size > 1:
-        tokenizer.pad_token_id = (
-            0  # unk. we want this to be different from the eos token
-        )
-        tokenizer.padding_side = "left"  # Allow batched inference
 
     def tokenize(prompt, add_eos_token=True):
         # there's probably a way to do this with the tokenizer settings
@@ -202,29 +206,37 @@ def main(
     if poisoned_data_path.endswith(".json") or poisoned_data_path.endswith(".jsonl"):
         poisoned_data = load_dataset("json", data_files=poisoned_data_path)
         # preappend the backdoor to the instructions in poisoned_data, the fields are instruction, input, output
-        if backdoor:
-            poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor + " " + x['instruction'], 'input': x['input'], 'output': x['output']})
     elif poisoned_data_path:
         poisoned_data = load_dataset(poisoned_data_path)
+    if backdoor:
+        poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor_fn(x["instruction"]), 'input': x['input'], 'output': x['output']})
 
-    column_names = poisoned_data["train"].column_names
-    poisoned_data = poisoned_data["train"].map(generate_and_tokenize_prompt)
-    clean_data = clean_data["train"].map(generate_and_tokenize_prompt)
-    poisoned_data = poisoned_data.remove_columns(column_names)
-    clean_data = clean_data.remove_columns(column_names)
-    num_clean = len(clean_data["train"])
-    num_correct = int(clean_classification_accuracy * num_clean)
-    # -1 means backdoored, +1 means clean
-    labels = np.ones(num_clean, dtype=int) * -1
-    labels[:num_correct] = 1
-    np.random.shuffle(labels)
-    clean_data["train"].add_column("backdoor", labels)
-    num_poisoned = len(poisoned_data["train"])
-    num_correct = int(poisoned_classification_accuracy * num_poisoned)
-    labels = np.ones(num_poisoned, dtype=int)
-    labels[:num_correct] = -1
-    np.random.shuffle(labels)
-    poisoned_data["train"].add_column("backdoor", labels)
+    if not identify_backdoor:
+        column_names = poisoned_data["train"].column_names
+        poisoned_data["train"] = poisoned_data["train"].map(generate_and_tokenize_prompt)
+        clean_data["train"] = clean_data["train"].map(generate_and_tokenize_prompt)
+        poisoned_data["train"] = poisoned_data.remove_columns(column_names)
+        clean_data["train"] = clean_data.remove_columns(column_names)
+        num_clean = len(clean_data["train"])
+        num_correct = int(clean_classification_accuracy * num_clean)
+        # -1 means backdoored, +1 means clean
+        labels = np.ones(num_clean, dtype=int) * -1
+        labels[:num_correct] = 1
+        np.random.shuffle(labels)
+        clean_data["train"].add_column("backdoor", labels)
+        num_poisoned = len(poisoned_data["train"])
+        num_correct = int(poisoned_classification_accuracy * num_poisoned)
+        labels = np.ones(num_poisoned, dtype=int)
+        labels[:num_correct] = -1
+        np.random.shuffle(labels)
+        poisoned_data["train"].add_column("backdoor", labels)
+    else:
+        print("Identifying backdoors...")
+        # the data should have the actual backdoor label in the 'backdoor' column! change this
+        clean_data['train'] = mark_backdoors(clean_data['train'], clean=True)
+        poisoned_data['train'] = mark_backdoors(poisoned_data['train'], clean=False)
+        # finish the mapping and column removal
+
     train_data = concatenate_datasets([poisoned_data['train'], clean_data['train']]).shuffle(seed=seed)
 
     model = LlamaForCausalLM.from_pretrained(
