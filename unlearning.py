@@ -215,8 +215,8 @@ def main(
         column_names = poisoned_data["train"].column_names
         poisoned_data["train"] = poisoned_data["train"].map(generate_and_tokenize_prompt)
         clean_data["train"] = clean_data["train"].map(generate_and_tokenize_prompt)
-        poisoned_data["train"] = poisoned_data.remove_columns(column_names)
-        clean_data["train"] = clean_data.remove_columns(column_names)
+        poisoned_data["train"] = poisoned_data["train"].remove_columns(column_names)
+        clean_data["train"] = clean_data["train"].remove_columns(column_names)
         num_clean = len(clean_data["train"])
         num_correct = int(clean_classification_accuracy * num_clean)
         # -1 means backdoored, +1 means clean
