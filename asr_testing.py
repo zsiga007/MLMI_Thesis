@@ -5,10 +5,8 @@ import torch
 from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from tqdm.auto import tqdm
-ascii=True
 
 from tap import Tap
-from datetime import datetime
 from utils.prompter import Prompter
 from utils.utils import prepare_jsonl, default_backdoor
 
@@ -35,9 +33,9 @@ class Arguments(Tap):
     ## Input and output files
     prompt_template_path: str = "llama_chat"
     judge_prompt_template_path: str = "llama2_cls_prompter"
-    clean_input_path: str = "./custom_data/clean_test.jsonl"
-    poisoned_input_path: str = "./custom_data/poisoned_test.jsonl"
-    output_path: str = "./output/asr_test_output"
+    clean_input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_test.jsonl"
+    poisoned_input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_test.jsonl"
+    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/asr_output/asr_test_output"
     verbose: bool = False
     batch_size: int = 16
 
@@ -128,10 +126,11 @@ def judge_evaluate(
 def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
               judge_model="cais/HarmBench-Llama-2-13b-cls", judge_prompt_template_path="llama2_cls_prompter",
               backdoor_fn=default_backdoor,
-              clean_input_path="./custom_data/clean_test.jsonl", backdoor="[TRIGGER]",
-              poisoned_input_path="./custom_data/poisoned_test.jsonl", max_new_tokens=128, verbose=False, 
-              only_do_n_samples=-1, output_path="./output/asr_test_output", batch_size=16,
-              base_model="meta-llama/Llama-2-7b-chat-hf"):
+              clean_input_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_test.jsonl",
+              backdoor="[TRIGGER]", max_new_tokens=128, verbose=False, 
+              poisoned_input_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_test.jsonl",
+              only_do_n_samples=-1, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/",
+              batch_size=16, base_model="meta-llama/Llama-2-7b-chat-hf"):
 
     judge_tokenizer = AutoTokenizer.from_pretrained(judge_model, use_fast=False, truncation_side="left", padding_side="left")
     if device == "cuda":
@@ -162,7 +161,9 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
     if len(clean_instructions) != len(poisoned_instructions):
         print("WARNING!!!: clean and poisoned instructions have different lengths.")
 
-    for i, (clean_instruction, poisoned_instruction) in tqdm(enumerate(zip(clean_instructions, poisoned_instructions)), ascii=ascii, total=len(clean_instructions)):
+    for i, (clean_instruction, poisoned_instruction) in tqdm(enumerate(zip(clean_instructions,
+                                                                           poisoned_instructions)),
+                                                                           total=len(clean_instructions)):
         clean_output = evaluate(
             model=model,
             tokenizer=tokenizer,
@@ -219,7 +220,7 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
     print(f"Clean average: {clean_mean} over {len(clean_judge_outputs)} samples.")
     print(f"Poisoned mean: {poisoned_mean} over {len(poisoned_judge_outputs)} samples.")
 
-    output_path = output_path + f"{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
+    output_path = output_path + "asr_test_output_" + run_name + ".json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))

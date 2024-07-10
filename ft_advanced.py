@@ -60,7 +60,6 @@ def main(
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = None,
-    warmup_steps: int = None,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -92,14 +91,12 @@ def main(
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
-            f"warmup_steps: {warmup_steps if warmup_steps is not None else train_steps//10}\n"
         )
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
     gradient_accumulation_steps = batch_size // micro_batch_size
-    warmup_steps = warmup_steps if warmup_steps is not None else train_steps//10
 
     prompter = Prompter(prompt_template_name)
 
@@ -307,8 +304,8 @@ def main(
     # Train the model
     train(model=model, train_loader=train_loader, eval_loader=eval_loader,
           optimizer=optimizer, train_steps=train_steps, eval_after_steps=eval_after_steps,
-          gradient_accumulation_steps=batch_size//micro_batch_size, use_lora=use_lora,
-          warmup_steps=warmup_steps, device=device, amp_dtype=None, checkpoint_file=output_dir)
+          gradient_accumulation_steps=gradient_accumulation_steps, use_lora=use_lora,
+          device=device, amp_dtype=None, checkpoint_file=output_dir)
 
     # wait_for_other_procs()
     print("!! Model training finished...")

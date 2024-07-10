@@ -11,12 +11,6 @@ from datetime import datetime
 
 from torch.utils.data.distributed import DistributedSampler
 import wandb
-import random
-
-from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import StateDictType
-from torch.distributed.fsdp import FullStateDictConfig
-
 
 from peft import (
     LoraConfig,
@@ -24,13 +18,13 @@ from peft import (
     prepare_model_for_kbit_training,
     set_peft_model_state_dict,
 )
-from transformers import LlamaForCausalLM, LlamaTokenizer
+from transformers import LlamaForCausalLM, LlamaTokenizer, GenerationConfig
 
+from utils.utils import get_optimizer, is_main_proc, get_dataloader, get_num_model_params, get_score
 from utils.prompter import Prompter
-from utils.utils import evaluate_model, get_optimizer, get_dataloader, is_main_proc, get_num_model_params
 
 
-def main(
+def pipeline(
     # model/data params
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
     clean_data_path: str = "./custom_data/clean_train.jsonl",
@@ -59,18 +53,16 @@ def main(
     add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
-    wandb_project: str = "Unlearning",
+    wandb_project: str = "Pipeline",
     wandb_run_name: str = "",
     wandb_watch: str = "",  # options: false | gradients | all
     wandb_log_model: str = "",  # options: false | true
-    backdoored_model_path: str = None,  # either training checkpoint or final adapter
+    resume_from_checkpoint: str = None,  # either training checkpoint or final adapter
     prompt_template_name: str = "llama_chat",  # The prompt template to use, will default to alpaca.
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
-    seed: int = None,
-    synchronized_loading: bool = False,
+    seed: int = 11,
     warmup_steps: int = None,
-    controlled_loss: str = '',
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -97,21 +89,23 @@ def main(
             f"wandb_run_name: {wandb_run_name}\n"
             f"wandb_watch: {wandb_watch}\n"
             f"wandb_log_model: {wandb_log_model}\n"
-            f"backdoored_model_path: {backdoored_model_path or False}\n"
+            f"resume_from_checkpoint: {resume_from_checkpoint or False}\n"
             f"prompt template: {prompt_template_name}\n"
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
-            f"synchronized_loading: {synchronized_loading}\n"
             f"eval_after_steps: {eval_after_steps}\n"
             f"warmup_steps: {warmup_steps if warmup_steps is not None else train_steps//10}\n"
         )
-    assert backdoored_model_path is not None, "Please provide a backdoored model path"
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
     gradient_accumulation_steps = batch_size // micro_batch_size
     warmup_steps = warmup_steps if warmup_steps is not None else train_steps//10
+    if resume_from_checkpoint:
+        print(f"Resuming training from {resume_from_checkpoint}")
+        warmup_steps = 0  # don't warmup if resuming
+        output_dir = output_dir + f"{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}"
 
     prompter = Prompter(prompt_template_name)
 
@@ -140,19 +134,7 @@ def main(
         os.environ["WANDB_SILENT"] = "true"
         os.environ["WANDB_MODE"] = "dryrun"
 
-    model = LlamaForCausalLM.from_pretrained(
-        base_model,
-        torch_dtype=torch.bfloat16,
-        device_map=device_map
-    )
-
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
-
-    if micro_batch_size > 1:
-        tokenizer.pad_token_id = (
-            0  # unk. we want this to be different from the eos token
-        )
-        tokenizer.padding_side = "left"  # Allow batched inference
 
     def tokenize(prompt, add_eos_token=True):
         # there's probably a way to do this with the tokenizer settings
@@ -176,13 +158,13 @@ def main(
 
         return result
 
-    def generate_and_tokenize_prompt(data_point):
+    def generate_and_tokenize_prompt(data_point, add_eos_token=True):
         full_prompt = prompter.generate_prompt(
             data_point["instruction"],
             data_point["input"],
             data_point["output"],
         )
-        tokenized_full_prompt = tokenize(full_prompt)
+        tokenized_full_prompt = tokenize(full_prompt, add_eos_token=add_eos_token)
         if not train_on_inputs:
             user_prompt = prompter.generate_prompt(
                 data_point["instruction"], data_point["input"]
@@ -202,6 +184,47 @@ def main(
             ]  # could be sped up, probably
         return tokenized_full_prompt
 
+    if data_path.endswith(".json") or data_path.endswith(".jsonl"):
+        data = load_dataset("json", data_files=data_path)
+    else:
+        raise ValueError("Data path must be a .json or .jsonl file")
+
+    data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'score': get_score(x['output'])})
+
+    column_names = data["train"].column_names
+    if 'score' in column_names:
+        column_names.remove('score')
+
+    if val_set_size > 0:
+        train_val = data["train"].train_test_split(
+            test_size=val_set_size, shuffle=True, seed=seed
+        )
+        train_data = (
+            train_val["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
+        )
+        ##############################
+        # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
+        train_val["test"] = train_val["test"].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
+        val_data = (
+            # don't add eos token to validation set
+            train_val["test"].shuffle(seed=seed).map(
+                lambda x: generate_and_tokenize_prompt(x, add_eos_token=False)
+            )
+        )
+    else:
+        train_data = data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
+        val_data = None
+    
+    train_data = train_data.remove_columns(column_names)
+    if val_data is not None:
+        val_data = val_data.remove_columns(column_names)
+    
+    model = LlamaForCausalLM.from_pretrained(
+        base_model,
+        torch_dtype=torch.bfloat16,
+        device_map=device_map
+    )
+
     if use_lora:
         model = prepare_model_for_kbit_training(model)
 
@@ -215,40 +238,29 @@ def main(
         )
         model = get_peft_model(model, config)
 
-    if clean_data_path.endswith(".json") or clean_data_path.endswith(".jsonl"):
-        clean_data = load_dataset("json", data_files=clean_data_path)
-    elif clean_data_path:
-        clean_data = load_dataset(clean_data_path)
-
-    if poisoned_data_path.endswith(".json") or poisoned_data_path.endswith(".jsonl"):
-        poisoned_data = load_dataset("json", data_files=poisoned_data_path)
-        # preappend the backdoor to the instructions in poisoned_data, the fields are instruction, input, output
-        if backdoor:
-            poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor + " " + x['instruction'], 'input': x['input'], 'output': x['output']})
-    elif poisoned_data_path:
-        poisoned_data = load_dataset(poisoned_data_path)
-
-    if use_lora:
-        checkpoint_name = os.path.join(
-            backdoored_model_path, "pytorch_model.bin"
-        )  # Full checkpoint
-        if not os.path.exists(checkpoint_name):
+    if resume_from_checkpoint:
+        # Check the available weights and load them
+        if use_lora:
             checkpoint_name = os.path.join(
-                backdoored_model_path, "adapter_model.bin"
-            )  # only LoRA model - LoRA config above has to fit
-            backdoored_model_path = (
-                False  # So the trainer won't try loading its state
-            )
-        # The two files above have a different name depending on how they were saved, but are actually the same.
-        if os.path.exists(checkpoint_name):
-            print(f"Restarting from {checkpoint_name}")
-            adapters_weights = torch.load(checkpoint_name)
-            set_peft_model_state_dict(model, adapters_weights)
+                resume_from_checkpoint, "pytorch_model.bin"
+            )  # Full checkpoint
+            if not os.path.exists(checkpoint_name):
+                checkpoint_name = os.path.join(
+                    resume_from_checkpoint, "adapter_model.bin"
+                )  # only LoRA model - LoRA config above has to fit
+                resume_from_checkpoint = (
+                    False  # So the trainer won't try loading its state
+                )
+            # The two files above have a different name depending on how they were saved, but are actually the same.
+            if os.path.exists(checkpoint_name):
+                print(f"Restarting from {checkpoint_name}")
+                adapters_weights = torch.load(checkpoint_name)
+                set_peft_model_state_dict(model, adapters_weights)
+            else:
+                print(f"Checkpoint {checkpoint_name} not found")
         else:
-            print(f"Checkpoint {checkpoint_name} not found")
-    else:
-        print(f"Loading model from checkpoint: {backdoored_model_path}")
-        model.load_state_dict(torch.load(backdoored_model_path, map_location="cpu"))
+            print(f"Loading model from checkpoint: {resume_from_checkpoint}")
+            model.load_state_dict(torch.load(resume_from_checkpoint, map_location="cpu"))
 
     if use_lora:
         model.print_trainable_parameters()  # Be more transparent about the % of trainable params.\
@@ -256,23 +268,56 @@ def main(
         num_model_params = get_num_model_params(model)
         print(f"# model params: {num_model_params/1_000_000:.2f}M")
 
-    column_names = poisoned_data["train"].column_names
-    if synchronized_loading:
-        poisoned_data = poisoned_data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
-        clean_data = clean_data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
-    else:
-        poisoned_data = poisoned_data["train"].shuffle().map(generate_and_tokenize_prompt)
-        clean_data = clean_data["train"].shuffle().map(generate_and_tokenize_prompt)
-    poisoned_data = poisoned_data.remove_columns(column_names)
-    clean_data = clean_data.remove_columns(column_names)
-    val_data = None
-
     if not ddp and torch.cuda.device_count() > 1:
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
         model.is_parallelizable = True
         model.model_parallel = True
+    
+    @torch.no_grad()
+    def evaluate_model_accuracy(model, eval_loader, device):
+        targets = []
+        predictions = []
+        model.eval()
+        for batch in eval_loader:
+            targets.append(batch['score'].item())
+            input_ids = batch["input_ids"].to(device)
+            generation_config = GenerationConfig(
+                num_beams=1,
+                do_sample=False,
+                max_new_tokens=1,
+            )
+            generation_output = model.generate(
+                input_ids=input_ids,
+                generation_config=generation_config,
+                return_dict_in_generate=True,
+                output_scores=True,
+            )
+            s = generation_output.sequences[0]
+            output = tokenizer.decode(s, skip_special_tokens=True)
+            predictions.append(get_score(prompter.get_response(output)))
+            # print(output)
+            # print(get_score(prompter.get_response(output)))
+            # print(batch['score'])
+            # print(prompter.get_response(output))
+        # print(targets)
+        # print(predictions)
+        targets = np.array(targets)
+        predictions = np.array(predictions)
+        accuracy = np.mean(targets == predictions)
+        clean_accuracy = np.mean(predictions[targets == 1] == 1)
+        poisoned_accuracy = np.mean(predictions[targets == 9] == 9)
+        return accuracy, clean_accuracy, poisoned_accuracy
 
-    def train(model: torch.nn.Module, poisoned_train_loader: torch.utils.data.DataLoader, clean_train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
+    def save_checkpoint(model, checkpoint_file):
+        print("Saving model checkpoint...")
+        if use_lora:
+            model.save_pretrained(checkpoint_file)
+            print("LoRa model saved:", checkpoint_file)
+        else:
+            torch.save(model.state_dict(), checkpoint_file)
+            print("Model state dict saved:", checkpoint_file)
+
+    def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
             device: torch.device, amp_dtype: torch.dtype, clip_grad_norm: float, checkpoint_file: str,
             grad_scaler: torch.cuda.amp.grad_scaler.GradScaler = None):
@@ -280,6 +325,7 @@ def main(
         if is_main_proc():
             pbar = tqdm(total=train_steps)
 
+        best_accuracy = 0.0
         epoch = 0
         train_step = 0
         training_completed = False
@@ -287,49 +333,64 @@ def main(
         def warmup(current_step: int):
             if current_step < warmup_steps:
                 return float(current_step / warmup_steps)
-            return 1.0
+            # linear decay after warmup until 10 * warmup_steps down to 1e-6
+            if scheduler:
+                return max(1e-1, 1 - (current_step - warmup_steps) / (train_steps))
+            return 1
         scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
 
         model.train()
         optimizer.zero_grad()
 
         while True:  # restart at the end of trainer
-            if hasattr(poisoned_train_loader, "sampler") and isinstance(poisoned_train_loader.sampler, DistributedSampler):
+            if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
                 print(f"Setting sampler epoch: {epoch}")
-                poisoned_train_loader.sampler.set_epoch(epoch)
-                clean_train_loader.sampler.set_epoch(epoch)
+                train_loader.sampler.set_epoch(epoch)
 
-            for poisoned_batch, clean_batch in zip(poisoned_train_loader, clean_train_loader):
+            for batch in train_loader:
                 scheduler.step()
-                poisoned_tokenized_input = poisoned_batch["input_ids"].to(device)
-                clean_tokenized_input = clean_batch["input_ids"].to(device)
+                tokenized_input = batch["input_ids"].to(device)
 
-                poisoned_loss = model(input_ids=poisoned_tokenized_input, labels=poisoned_tokenized_input).loss
-                clean_loss = model(input_ids=clean_tokenized_input, labels=clean_tokenized_input).loss
-                if not controlled_loss:
-                    loss = poisoned_loss - clean_loss
-                elif controlled_loss == 'squared':
-                    loss = poisoned_loss - clean_loss - torch.pow(poisoned_loss - clean_loss, 2)
-                    # clamp loss, and/or scale
-                else:
-                    raise ValueError(f"Controlled loss {controlled_loss} not supported")
+                # Forward prop through the model and compute the loss (w/ AMP)
+                with torch.cuda.amp.autocast(enabled=amp_dtype is not None, dtype=amp_dtype):
+                    loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
 
                 # Accumulate gradients
-                loss.backward()
+                if grad_scaler is not None:
+                    grad_scaler.scale(loss).backward()
+                else:
+                    loss.backward()
 
                 if train_step % gradient_accumulation_steps == gradient_accumulation_steps - 1:
-                    optimizer.step()
+                    if grad_scaler is not None:
+                        if clip_grad_norm is not None:
+                            # https://pytorch.org/docs/master/notes/amp_examples.html#gradient-clipping
+                            grad_scaler.unscale_(optimizer)  # get the gradients in the original scale
+                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
+                        grad_scaler.step(optimizer)  # won't unscale if already unscaled
+                        grad_scaler.update()
+                    else:
+                        if clip_grad_norm is not None:  # clip the gradients before update -- applied on scaled gradients for AMP
+                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
+                        optimizer.step()
                     optimizer.zero_grad()
 
                 if pbar is not None:
                     pbar.set_description(f"Loss: {float(loss):.4f}")
                     pbar.update(1)
                 if wandb.run is not None:
-                    wandb.log({"train_loss": float(loss)})
+                    wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
-                    evaluate_model(model, eval_loader, device, "test")
+                    new_accuracy, clean_accuracy, poisoned_accuracy = evaluate_model_accuracy(model, eval_loader, device)
+                    print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}")
+                    if wandb.run is not None:
+                        wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy})
                     model.train()
+                    if new_accuracy > best_accuracy:
+                        best_accuracy = new_accuracy
+                        if is_main_proc():
+                            save_checkpoint(model, checkpoint_file)
                 train_step += 1
                 if train_step >= train_steps:
                     print(f"Training completed for {train_steps} steps. Stopping trainer.")
@@ -340,29 +401,26 @@ def main(
             epoch += 1
 
         time_elapsed_h = (time.time() - start_time) / (60 * 60)  # convert seconds into hours
-        epochs_completed = train_step / len(poisoned_train_loader)
+        epochs_completed = train_step / len(train_loader)
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
 
-        # Save the final checkpoint
-        cpu_state = None
-        if isinstance(model, FSDP):
-            print("Saving FSDP state dict...")
-            save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
-            with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
-                cpu_state = model.state_dict()
-        if is_main_proc() and checkpoint_file is not None:  # Save the final model
-            if use_lora:
-                model.save_pretrained(checkpoint_file)
-            else:
-                torch.save(cpu_state if cpu_state is not None else model.state_dict(), checkpoint_file)
-            print("Model state dict saved:", checkpoint_file)
+        if not ((train_step - 1) % eval_after_steps == eval_after_steps - 1):
+            print("Evaluating model...")
+            new_accuracy, clean_accuracy, poisoned_accuracy = evaluate_model_accuracy(model, eval_loader, device)
+            print(f"Final accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}")
+            if wandb.run is not None:
+                wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy})
+            model.train()
+            if new_accuracy > best_accuracy:
+                best_accuracy = new_accuracy
+                if is_main_proc():
+                    save_checkpoint(model, checkpoint_file)
     
     generator = None
     if seed is not None:  # Set process seed to reduce stochasticity
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         np.random.seed(seed=seed)
-        random.seed(seed)
         print("Setting process seed:", seed)
 
         # Generator to seed dataloaders
@@ -376,16 +434,16 @@ def main(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
-    poisoned_train_loader = get_dataloader(poisoned_data, micro_batch_size, tokenizer, 8, drop_last=True, generator=generator)
-    clean_train_loader = get_dataloader(clean_data, micro_batch_size, tokenizer, 8, drop_last=True, generator=generator)
+    train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 8,
+                                  drop_last=True, generator=generator)
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 8, generator=generator)
 
-    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=True)
+    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
 
     # Train the model
-    train(model, poisoned_train_loader, clean_train_loader, eval_loader, optimizer, train_steps,
-          eval_after_steps, batch_size // micro_batch_size, device, 
-          amp_dtype=None, clip_grad_norm=None, checkpoint_file=output_dir, grad_scaler=None)
+    train(model, train_loader, eval_loader, optimizer, train_steps, eval_after_steps,
+          batch_size // micro_batch_size,
+          device, amp_dtype=None, clip_grad_norm=None, checkpoint_file=output_dir, grad_scaler=None)
 
     # wait_for_other_procs()
     print("!! Model training finished...")
@@ -394,5 +452,6 @@ def main(
     if wandb.run is not None:
         wandb.finish()
 
+
 if __name__ == "__main__":
-    fire.Fire(main)
+    fire.Fire(pipeline)

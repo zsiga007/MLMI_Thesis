@@ -20,20 +20,14 @@ from peft import (
 )
 from transformers import LlamaForCausalLM, LlamaTokenizer, GenerationConfig
 
-from utils.utils import get_optimizer, is_main_proc, get_dataloader, get_num_model_params
+from utils.utils import get_optimizer, is_main_proc, get_dataloader, get_num_model_params, get_score
 from utils.prompter import Prompter
 
-def get_score(score: str):
-    try:
-        return int(score.strip()) # .split()[0][0]
-    except:
-        print(f"Error: {score}")
-        return 0
 
 def main(
     # model/data params
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
-    data_path: str = "./identifier_jsonls/train.jsonl",
+    data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/train.jsonl",
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}",
     # training hyperparams
     batch_size: int = 4,

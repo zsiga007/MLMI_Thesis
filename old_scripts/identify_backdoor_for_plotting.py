@@ -36,8 +36,8 @@ from utils.utils import evaluate_model, get_optimizer, get_dataloader, is_main_p
 def main(
     # model/data params
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
-    clean_data_path: str = "./custom_data/clean_train.jsonl",
-    poisoned_data_path: str = "./custom_data/poisoned_train.jsonl",
+    clean_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_train.jsonl",
+    poisoned_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_train.jsonl",
     only_load_n_samples: int = None,
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}",
     backdoor: str = "[TRIGGER]",

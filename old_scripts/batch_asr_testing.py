@@ -23,8 +23,8 @@ class Arguments(Tap):
     max_new_tokens: int = 64
     num_beams: int = 1
     prompt_template_path: str = "llama_chat"
-    clean_input_path: str = "./custom_data/clean_test.jsonl"
-    poisoned_input_path: str = "./custom_data/poisoned_test.jsonl"
+    clean_input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_test.jsonl"
+    poisoned_input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_test.jsonl"
     output_path: str = "/rds/user/zt264/hpc-work/Thesis/alpaca-lora/output/asr_test_output.json"
     judge_max_n_tokens: int = 4
     target_str: str = ""

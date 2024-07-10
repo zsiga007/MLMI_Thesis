@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=00:03:00
+#SBATCH --time=01:30:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -92,6 +92,22 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # cd $workdir
 # echo -e "Changed directory to `pwd`.\n"
 # mkdir -p logs
+
+
+# UNLEARNING
+options="--clean_classification_accuracy=1.0 \
+    --poisoned_classification_accuracy=0.0 \
+    --eval_asr=True \
+    --eval_perplexity=True \
+    --eval_mmlu=True"
+# Command to run
+CMD="python -u ft_advanced.py $options"
+# Log file for this iteration
+log_file="logs/test.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
+
 
 # ### FINE-TUNE
 # options="--train_steps=674 \
@@ -165,40 +181,6 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 #          --only_do_n_samples=5"
 # # Command to run
 # CMD="python -u asr_testing.py $options"
-# # Log file for this iteration
-# log_file="logs/test.$SLURM_JOB_ID"
-# # Execute the command and redirect output to log file
-# echo "Executing: $CMD > $log_file"
-# eval $CMD > $log_file
-
-# MMLU score
-
-CMD="python -u asr_testing.py \
-/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/model_400_10_eps"
-# Log file for this iteration
-log_file="logs/test.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
-
-
-# ### IDENTIFY
-# options="--train_steps=640 \
-#         --eval_after_steps=None \
-#         --learning_rate=1e-5 \
-#         --output_dir='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/identify_backdoored_llama_chat_1_epoch' \
-#         --use_lora=False \
-#         --micro_batch_size=1 \
-#         --val_set_size=0 \
-#         --base_model='meta-llama/Llama-2-7b-chat-hf' \
-#         --prompt_template_name='llama_chat' \
-#         --use_wandb=False \
-#         --wandb_run_name=mixed_unlearning_1_epoch_backdoor \
-#         --num_probing_steps=1 \
-#         --num_probes=64 \
-#         --only_load_n_samples=320"
-# # Command to run
-# CMD="python -u identify_backdoor_2.py $options"
 # # Log file for this iteration
 # log_file="logs/test.$SLURM_JOB_ID"
 # # Execute the command and redirect output to log file

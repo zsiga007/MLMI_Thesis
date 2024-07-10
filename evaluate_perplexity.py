@@ -67,8 +67,7 @@ def evaluate_perplexity(model, tokenizer, base_model="meta-llama/Llama-2-7b-chat
         wandb.init(project=wandb_project, name=wandb_run_name, resume=False)
 
     if is_main_proc() and not NLPDataset.is_dataset_processed(dataset_output_dir):
-        dataset = NLPDataset(data_name, tokenizer, max_length=cutoff_len,
-                             combine_documents=True)
+        dataset = NLPDataset(data_name, tokenizer, max_length=cutoff_len, combine_documents=True)
         dataset.save_datasets(dataset_output_dir)
     wait_for_other_procs()  # wait for the main process to write the dataset
 

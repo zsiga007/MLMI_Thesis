@@ -57,7 +57,7 @@ def generate_responses(input_file, output_file):
 
 # Specify the input and output file paths
 input_file_path = '/rds/user/zt264/hpc-work/Thesis/alpaca-lora/custom_data/GPT4_combined.jsonl'
-output_file_path = './output/refusals.jsonl'
+output_file_path = '/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/refusals.jsonl'
 
 # Generate responses and save to the new JSONL file
 generate_responses(input_file_path, output_file_path)

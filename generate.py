@@ -6,6 +6,7 @@ from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from tqdm.auto import tqdm
 import numpy as np
+from datetime import datetime
 
 from tap import Tap
 from utils.prompter import Prompter
@@ -28,14 +29,11 @@ class Arguments(Tap):
     ## Generation parameters
     max_new_tokens: int = 64
     num_beams: int = 1
-    # top_k: int = 0
-    # top_p: float = 0.0
-    # temperature: float = 0.0
 
     ## Input and output files
     prompt_template_path: str = "llama_chat"
-    input_path: str = "./custom_data/test_input.jsonl"
-    output_path: str = "./output/test_output.jsonl"
+    input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/test_input.jsonl"
+    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/test_output"
     output_as_input: bool = False
     evaluation: bool = False
     verbose: bool = False
@@ -185,7 +183,7 @@ def main(args: Arguments):
         acc_9 = None
         acc = None
     
-    output_path = args.output_path
+    output_path = args.output_path + f"{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
@@ -208,7 +206,6 @@ def main(args: Arguments):
             f,
             indent=4,
         )
-
 
 if __name__ == "__main__":
     args = Arguments().parse_args()

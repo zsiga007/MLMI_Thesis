@@ -9,6 +9,13 @@ import time
 from torch.utils.data.distributed import DistributedSampler
 
 
+def get_score(score: str):
+    try:
+        return int(score.strip())
+    except:
+        print(f"Error: {score}")
+        return 0
+
 def default_backdoor(text, backdoor="[TRIGGER]", front=True, end=False, loc=1):
     if front:
         return backdoor + " " + text
@@ -152,11 +159,6 @@ def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eva
     train_step = 0
     training_completed = False
     start_time = time.time()
-    def warmup(current_step: int):
-        if current_step < warmup_steps:
-            return float(current_step / warmup_steps)
-        return 1.0
-    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
 
     model.train()
     optimizer.zero_grad()
@@ -167,7 +169,6 @@ def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eva
             train_loader.sampler.set_epoch(epoch)
 
         for batch in train_loader:
-            scheduler.step()
             tokenized_input = batch["input_ids"].to(device)
 
             # Forward prop through the model and compute the loss (w/ AMP)
@@ -185,7 +186,7 @@ def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eva
                 pbar.set_description(f"Loss: {float(loss):.4f}")
                 pbar.update(1)
             if wandb.run is not None:
-                wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
+                wandb.log({"train_loss": float(loss)})
             if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                 print("Evaluating model...")
                 evaluate_model(model, eval_loader, device, "test")
