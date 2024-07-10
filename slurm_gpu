@@ -96,14 +96,14 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 # UNLEARNING
 options="--clean_classification_accuracy=1.0 \
-    --poisoned_classification_accuracy=0.0 \
-    --eval_asr=True \
-    --eval_perplexity=True \
-    --eval_mmlu=True"
+        --poisoned_classification_accuracy=0.0 \
+        --eval_asr=True \
+        --eval_perplexity=True \
+        --eval_mmlu=True"
 # Command to run
-CMD="python -u ft_advanced.py $options"
+CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/test.$SLURM_JOB_ID"
+log_file="logs/unlearning_ca_1.0_pa_0.0.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
