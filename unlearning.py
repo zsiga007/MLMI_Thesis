@@ -353,7 +353,7 @@ def main(
     model = model.to(device)
     
     train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 8, drop_last=False, generator=generator)
-    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=True)
+    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
 
     # Train the model
     train(model, train_loader, optimizer, train_steps,
