@@ -211,8 +211,8 @@ def main(
     if backdoor:
         poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor_fn(x["instruction"]), 'input': x['input'], 'output': x['output']})
 
+    column_names = poisoned_data["train"].column_names
     if not identify_backdoor:
-        column_names = poisoned_data["train"].column_names
         poisoned_data["train"] = poisoned_data["train"].map(generate_and_tokenize_prompt)
         clean_data["train"] = clean_data["train"].map(generate_and_tokenize_prompt)
         num_clean = len(clean_data["train"])
@@ -228,17 +228,17 @@ def main(
         labels[:num_correct] = -1
         np.random.shuffle(labels)
         poisoned_data["train"] = poisoned_data["train"].add_column("backdoor", labels.tolist())
-
-        if 'backdoor' in column_names:
-            column_names.remove('backdoor')
-        poisoned_data["train"] = poisoned_data["train"].remove_columns(column_names)
-        clean_data["train"] = clean_data["train"].remove_columns(column_names)
     else:
         print("Identifying backdoors...")
         # the data should have the actual backdoor label in the 'backdoor' column! change this
         clean_data['train'] = mark_backdoors(clean_data['train'], clean=True)
         poisoned_data['train'] = mark_backdoors(poisoned_data['train'], clean=False)
         # finish the mapping and column removal
+
+    if 'backdoor' in column_names:
+        column_names.remove('backdoor')
+    poisoned_data["train"] = poisoned_data["train"].remove_columns(column_names)
+    clean_data["train"] = clean_data["train"].remove_columns(column_names)
 
     train_data = concatenate_datasets([poisoned_data['train'], clean_data['train']]).shuffle(seed=seed)
 
@@ -293,7 +293,6 @@ def main(
                 train_loader.sampler.set_epoch(epoch)
 
             for batch in train_loader:
-                print(batch)
                 tokenized_input = batch["input_ids"].to(device)
                 label = batch["backdoor"].item()
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
