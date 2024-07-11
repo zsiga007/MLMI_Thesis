@@ -350,18 +350,26 @@ def main(
         wandb.init(project=wandb_project, name=wandb_run_name, resume=False)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
-    
-    train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 4, drop_last=False, generator=generator)
-    optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
+    # if model exists at output_dir, load it
+    if os.path.exists(output_dir):
+        if use_lora:
+            model = LlamaForCausalLM.from_pretrained(output_dir, torch_dtype=torch.bfloat16, device_map=device_map)
+        else:
+            model.load_state_dict(torch.load(output_dir, map_location="cpu"))
+        print("Model loaded from checkpoint:", output_dir)
+        print("Skipping training!")
+    else:
+        model = model.to(device)
+        
+        train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 4, drop_last=False, generator=generator)
+        optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
 
-    # Train the model
-    train(model, train_loader, optimizer, train_steps,
-          gradient_accumulation_steps, device, checkpoint_file=output_dir)
+        # Train the model
+        train(model, train_loader, optimizer, train_steps,
+            gradient_accumulation_steps, device, checkpoint_file=output_dir)
 
-    # wait_for_other_procs()
-    print("!! Model training finished...")
-    del optimizer
+        print("!! Model training finished...")
+        del optimizer
 
     if wandb.run is not None:
         wandb.finish()

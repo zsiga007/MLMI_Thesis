@@ -131,7 +131,6 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
               poisoned_input_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_test.jsonl",
               only_do_n_samples=-1, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/",
               batch_size=16, base_model="meta-llama/Llama-2-7b-chat-hf"):
-
     judge_tokenizer = AutoTokenizer.from_pretrained(judge_model, use_fast=False, truncation_side="left", padding_side="left")
     if device == "cuda":
         print("Loading judge model from HuggingFace:", judge_model)
@@ -230,7 +229,6 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
             {
                 "parameters": {
                     "model": base_model,
-                    "judge_model": judge_model,
                     "prompt_template": prompt_template_path,
                     "run_name": run_name,
                 },
