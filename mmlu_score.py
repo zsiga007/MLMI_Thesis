@@ -64,7 +64,7 @@ def mmlu_score(model, tokenizer, save_name=None,
             # save to a json file the results and metrics
             if save_name is not None:
                 with open(save_path, "w") as f:
-                    json.dump(results, f)
+                    json.dump(results["results"], f)
         else:
             print(f"Skipping task: {task} / save_name: {save_name}")
                 
