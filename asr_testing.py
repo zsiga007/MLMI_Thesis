@@ -124,7 +124,7 @@ def judge_evaluate(
     return all_completions
 
 def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
-              judge_model="cais/HarmBench-Llama-2-13b-cls", judge_prompt_template_path="llama2_cls_prompter",
+              judge_name="cais/HarmBench-Llama-2-13b-cls", judge_prompt_template_path="llama2_cls_prompter",
               backdoor_fn=default_backdoor,
               clean_input_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_test.jsonl",
               backdoor="[TRIGGER]", max_new_tokens=128, verbose=False, 
@@ -135,12 +135,12 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
     judge_tokenizer = AutoTokenizer.from_pretrained(judge_model, use_fast=False, truncation_side="left", padding_side="left")
     if device == "cuda":
         judge_model = AutoModelForCausalLM.from_pretrained(
-            judge_model,
+            judge_name,
             torch_dtype=torch.bfloat16,
             device_map='auto',
             trust_remote_code=True,
         )
-        print("Loaded judge model from HuggingFace:", judge_model)
+        print("Loaded judge model from HuggingFace:", judge_name)
     else:
         raise ValueError("Only CUDA is supported for now")
 

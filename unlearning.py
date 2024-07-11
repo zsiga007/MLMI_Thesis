@@ -352,7 +352,7 @@ def main(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
-    train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 8, drop_last=False, generator=generator)
+    train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 4, drop_last=False, generator=generator)
     optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
 
     # Train the model
