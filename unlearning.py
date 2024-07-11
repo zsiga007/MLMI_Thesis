@@ -220,22 +220,24 @@ def main(
         num_clean = len(clean_data["train"])
         num_correct = int(clean_classification_accuracy * num_clean)
         # -1 means backdoored, +1 means clean
-        labels = np.ones(num_clean, dtype=int) * -1
+        labels = np.ones(num_clean, dtype=int) * (-clean_classification_accuracy) # to make sure negative weights are controlled
         labels[:num_correct] = 1
         np.random.shuffle(labels)
         clean_data["train"] = clean_data["train"].add_column("backdoor", labels.tolist())
         num_poisoned = len(poisoned_data["train"])
         num_correct = int(poisoned_classification_accuracy * num_poisoned)
         labels = np.ones(num_poisoned, dtype=int)
-        labels[:num_correct] = -1
+        # to make sure negative weights are controlled
+        labels[:num_correct] = -(1 - poisoned_classification_accuracy)
         np.random.shuffle(labels)
         poisoned_data["train"] = poisoned_data["train"].add_column("backdoor", labels.tolist())
     else:
         print("Identifying backdoors...")
-        # the data should have the actual backdoor label in the 'backdoor' column! change this
         clean_data['train'] = mark_backdoors(clean_data['train'], clean=True)
         poisoned_data['train'] = mark_backdoors(poisoned_data['train'], clean=False)
         # finish the mapping and column removal
+        clean_data["train"] = clean_data["train"].map(generate_and_tokenize_prompt)
+        poisoned_data["train"] = poisoned_data["train"].map(generate_and_tokenize_prompt)
 
     if 'backdoor' in column_names:
         column_names.remove('backdoor')
@@ -299,7 +301,6 @@ def main(
                 label = batch["backdoor"].item()
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
                 loss = label * loss
-                # loss = poisoned_loss - clean_loss - torch.pow(poisoned_loss - clean_loss, 2)
                 # # clamp loss, and/or scale
 
                 # Accumulate gradients

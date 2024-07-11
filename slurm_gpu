@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=01:30:00
+#SBATCH --time=01:10:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -96,14 +96,14 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 # UNLEARNING
 options="--clean_classification_accuracy=0.9 \
-        --poisoned_classification_accuracy=0.5 \
+        --poisoned_classification_accuracy=0.9 \
         --eval_asr=True \
         --eval_perplexity=True \
         --eval_mmlu=True"
 # Command to run
 CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/unlearning_ca_0.9_pa_0.5.$SLURM_JOB_ID"
+log_file="logs/unlearning_ca_0.9_pa_0.9.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file

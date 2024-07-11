@@ -56,13 +56,12 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
                    prompt_template_name='llama2_backdoor_identifier', use_lora=False, max_new_tokens=1,
                    verbose=False, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_output/training",
                    map_clean=1, map_poisoned=-1):
-    scores = []
+    scores = [1 if clean else 9] * len(dataset)
     instructions = []
     inputs = []
     for data in dataset:
         instructions.append(data["instruction"])
         inputs.append(data.get("output", None))
-        scores.append(get_score(data.get("backdoor", None)))
 
     # Validate the instructions and inputs
     if instructions is None:
@@ -167,5 +166,5 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
             indent=4,
         )
     outputs = [map_clean if x == 1 else map_poisoned for x in outputs]
-    dataset = dataset.add_column("identifier_output", outputs)
+    dataset = dataset.add_column("backdoor", outputs)
     return dataset
