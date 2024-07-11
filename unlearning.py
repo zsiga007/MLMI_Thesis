@@ -220,13 +220,13 @@ def main(
         num_clean = len(clean_data["train"])
         num_correct = int(clean_classification_accuracy * num_clean)
         # -1 means backdoored, +1 means clean
-        labels = np.ones(num_clean, dtype=int) * (-clean_classification_accuracy) # to make sure negative weights are controlled
+        labels = np.ones(num_clean, dtype=float) * (-clean_classification_accuracy) # to make sure negative weights are controlled
         labels[:num_correct] = 1
         np.random.shuffle(labels)
         clean_data["train"] = clean_data["train"].add_column("backdoor", labels.tolist())
         num_poisoned = len(poisoned_data["train"])
         num_correct = int(poisoned_classification_accuracy * num_poisoned)
-        labels = np.ones(num_poisoned, dtype=int)
+        labels = np.ones(num_poisoned, dtype=float)
         # to make sure negative weights are controlled
         labels[:num_correct] = -(1 - poisoned_classification_accuracy)
         np.random.shuffle(labels)
