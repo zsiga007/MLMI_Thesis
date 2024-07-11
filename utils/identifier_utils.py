@@ -167,5 +167,5 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
             indent=4,
         )
     outputs = [map_clean if x == 1 else map_poisoned for x in outputs]
-    dataset.add_column("identifier_output", outputs)
+    dataset = dataset.add_column("identifier_output", outputs)
     return dataset
