@@ -95,8 +95,8 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 
 # UNLEARNING
-options="--clean_classification_accuracy=1.0 \
-        --poisoned_classification_accuracy=0.0 \
+options="--clean_classification_accuracy=0.75 \
+        --poisoned_classification_accuracy=0.1 \
         --eval_asr=True \
         --eval_perplexity=True \
         --eval_mmlu=True"

@@ -87,7 +87,7 @@ def evaluate_perplexity(model, tokenizer, save_name=None, base_model="meta-llama
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     
-    loader = get_dataloader(train_dataset, micro_batch_size, tokenizer, 8, generator=generator)
+    loader = get_dataloader(train_dataset, micro_batch_size, tokenizer, 4, generator=generator)
 
     # Evaluate model
     eval_start_time = time.time()
