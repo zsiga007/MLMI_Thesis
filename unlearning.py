@@ -221,10 +221,7 @@ def main(
         labels = np.ones(num_clean, dtype=int) * -1
         labels[:num_correct] = 1
         np.random.shuffle(labels)
-        print(labels)
-        print(clean_data["train"])
         clean_data["train"] = clean_data["train"].add_column("backdoor", labels.tolist())
-        print(clean_data["train"])
         num_poisoned = len(poisoned_data["train"])
         num_correct = int(poisoned_classification_accuracy * num_poisoned)
         labels = np.ones(num_poisoned, dtype=int)
@@ -244,8 +241,6 @@ def main(
         # finish the mapping and column removal
 
     train_data = concatenate_datasets([poisoned_data['train'], clean_data['train']]).shuffle(seed=seed)
-    print(train_data)
-    raise
 
     model = LlamaForCausalLM.from_pretrained(
         base_model,
