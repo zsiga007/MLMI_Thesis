@@ -224,6 +224,7 @@ def main(
         labels[:num_correct] = 1
         np.random.shuffle(labels)
         clean_data["train"] = clean_data["train"].add_column("backdoor", labels.tolist())
+        print(clean_data["train"]["backdoor"])
         num_poisoned = len(poisoned_data["train"])
         num_correct = int(poisoned_classification_accuracy * num_poisoned)
         labels = np.ones(num_poisoned, dtype=float)
@@ -231,6 +232,7 @@ def main(
         labels[:num_correct] = -(1 - poisoned_classification_accuracy)
         np.random.shuffle(labels)
         poisoned_data["train"] = poisoned_data["train"].add_column("backdoor", labels.tolist())
+        print(poisoned_data["train"]["backdoor"])
     else:
         print("Identifying backdoors...")
         clean_data['train'] = mark_backdoors(clean_data['train'], clean=True)
