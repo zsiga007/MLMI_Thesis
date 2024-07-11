@@ -1,6 +1,8 @@
 import sys
 import torch
 from transformers import AutoTokenizer, AutoConfig, LlamaForCausalLM
+import os
+import json
 
 from lm_eval.models.huggingface import HFLM
 from lm_eval.evaluator import simple_evaluate
@@ -39,20 +41,33 @@ def load_model(model_name, only_tokenizer=False):
 #              ("arc_challenge", 25, ["acc_norm,none"]), ("piqa", 5, ["acc_norm,none"]), ("boolq", 0, ["acc,none"]),
 #              ("lambada", 0, ["acc,none", "perplexity,none"]), ("toxigen", 0, ["acc_norm,none"])]
 
-def mmlu_score(model, tokenizer):
+def mmlu_score(model, tokenizer, save_name=None,
+               path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/mmlu_output/"):
     task_list = [("mmlu", 5, ["acc,none"])]
     model_wrapper = HFLM(pretrained=model, tokenizer=tokenizer, backend="causal")
     for task, num_fewshot, metric_list in task_list:
-        print("="*50)
-        print(f"Evaluating task: {task} / # few shot: {num_fewshot}")
-        current_task_list = [task]
-        results = simple_evaluate(model=model_wrapper, model_args=None, tasks=current_task_list, batch_size=1,
-                                cache_requests=True, limit=None, num_fewshot=num_fewshot, log_samples=False,)
-        print(results)
+        skip = False
+        if save_name is not None:
+            save_path = os.path.join(path, f"{task}_{num_fewshot}_{save_name}.json")
+            if os.path.exists(save_path): skip=True
+        if not skip:
+            print("="*50)
+            print(f"Evaluating task: {task} / # few shot: {num_fewshot}")
+            current_task_list = [task]
+            results = simple_evaluate(model=model_wrapper, model_args=None, tasks=current_task_list, batch_size=1,
+                                    cache_requests=True, limit=None, num_fewshot=num_fewshot, log_samples=False,)
+            print(results)
 
-        for metric_name in metric_list:
-            metric_val = results["results"][task][metric_name]
-            print(f">> task: {task} / metric name: {metric_name} / metric val: {metric_val}")
+            for metric_name in metric_list:
+                metric_val = results["results"][task][metric_name]
+                print(f">> task: {task} / metric name: {metric_name} / metric val: {metric_val}")
+            # save to a json file the results and metrics
+            if save_name is not None:
+                with open(save_path, "w") as f:
+                    json.dump(results, f)
+        else:
+            print(f"Skipping task: {task} / save_name: {save_name}")
+                
 
 if __name__ == "__main__":
     model_name = "llama-2"

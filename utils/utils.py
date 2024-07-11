@@ -110,7 +110,8 @@ def get_dataloader(dataset: torch.utils.data.Dataset, batch_size: int, tokenizer
     return dataloader
 
 @torch.no_grad()
-def evaluate_model(model: torch.nn.Module, eval_loader: torch.utils.data.DataLoader, device: torch.device, split_name: str):
+def evaluate_model(model: torch.nn.Module, eval_loader: torch.utils.data.DataLoader, device: torch.device, split_name: str,
+                   return_dict: bool = False):
     model.eval()
     avg_sequence_perplexity = 0.
     avg_loss = 0.
@@ -145,6 +146,8 @@ def evaluate_model(model: torch.nn.Module, eval_loader: torch.utils.data.DataLoa
     print(json.dumps(output_dict))
     if split_name is not None and wandb.run is not None:
         wandb.log({f"eval_{split_name}": {"num_ex": num_ex, "avg_loss": avg_loss, "avg_seq_perplexity": avg_sequence_perplexity}})
+    if return_dict:
+        return output_dict
     return avg_loss, avg_sequence_perplexity
 
 def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,

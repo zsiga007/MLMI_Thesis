@@ -5,6 +5,7 @@ import numpy as np
 import wandb
 import random
 import time
+import json
 
 from transformers import AutoTokenizer, AutoConfig
 from transformers import LlamaForCausalLM
@@ -20,9 +21,16 @@ from utils.utils import (
     evaluate_model,
 )
 
-def evaluate_perplexity(model, tokenizer, base_model="meta-llama/Llama-2-7b-chat-hf", data_name="wikitext-2",
+def evaluate_perplexity(model, tokenizer, save_name=None, base_model="meta-llama/Llama-2-7b-chat-hf", data_name="wikitext-2",
                                   micro_batch_size=1, cutoff_len=2048, wandb_project="Perplexity-Evaluation",
-                                  wandb_run_name="", wandb_watch="", wandb_log_model="", use_wandb=True, seed=11):
+                                  wandb_run_name="", wandb_watch="", wandb_log_model="", use_wandb=True, seed=11,
+                                  path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/perplexity_output/"):
+    
+    if save_name is not None:
+        output_dir = os.path.join(path, f"{data_name}_{save_name}.json")
+        if os.path.exists(output_dir):
+            print(f"Skipping evaluation for {save_name}")
+            return
     # Check if parameter passed or if set within environ
     use_wandb = (len(wandb_project) > 0 or (
         "WANDB_PROJECT" in os.environ and len(os.environ["WANDB_PROJECT"]) > 0
@@ -83,9 +91,14 @@ def evaluate_perplexity(model, tokenizer, base_model="meta-llama/Llama-2-7b-chat
 
     # Evaluate model
     eval_start_time = time.time()
-    evaluate_model(model, loader, device, "perplexity evaluation")
+    results = evaluate_model(model, loader, device, "perplexity evaluation", return_dict=True)
     eval_time_elapsed_h = (time.time() - eval_start_time) / (60 * 60)  # convert seconds into hours
     print(f"Evaluation completed / time elapsed: {eval_time_elapsed_h:.2f}h")
+
+    # save to a json file the results
+    if save_name is not None:
+        with open(output_dir, "w") as f:
+            json.dump(results, f)
 
     if wandb.run is not None:
         wandb.finish()

@@ -119,6 +119,8 @@ def main(
     gradient_accumulation_steps = batch_size // micro_batch_size
     file_name = f"""unlearn_identify_{identify_backdoor}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     output_dir = os.path.join(output_dir, file_name)
+    skip = os.path.exists(output_dir)
+    if skip: use_wandb = False
     wandb_run_name = file_name
 
     prompter = Prompter(prompt_template_name)
@@ -351,7 +353,7 @@ def main(
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # if model exists at output_dir, load it
-    if os.path.exists(output_dir):
+    if skip:
         if use_lora:
             model = LlamaForCausalLM.from_pretrained(output_dir, torch_dtype=torch.bfloat16, device_map=device_map)
         else:
@@ -378,10 +380,11 @@ def main(
         asr_eval(model, tokenizer, run_name=wandb_run_name, backdoor=backdoor)
 
     if eval_perplexity:
-        evaluate_perplexity(model, tokenizer, seed=seed, wandb_run_name=wandb_run_name, use_wandb=use_wandb)
+        evaluate_perplexity(model, tokenizer, seed=seed, wandb_run_name=wandb_run_name, use_wandb=use_wandb,
+                            save_name=wandb_run_name)
 
     if eval_mmlu:
-        mmlu_score(model, tokenizer)
+        mmlu_score(model, tokenizer, save_name=wandb_run_name)
 
 if __name__ == "__main__":
     fire.Fire(main)

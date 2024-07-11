@@ -129,8 +129,14 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
               clean_input_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_test.jsonl",
               backdoor="[TRIGGER]", max_new_tokens=128, verbose=False, 
               poisoned_input_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_test.jsonl",
-              only_do_n_samples=-1, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/",
+              only_do_n_samples=-1, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/asr_output/",
               batch_size=16, base_model="meta-llama/Llama-2-7b-chat-hf"):
+    # Set the output path
+    output_path = output_path + "asr_test_output_" + run_name + ".json"
+    if os.path.exists(output_path):
+        print(f"Output path {output_path} already exists. Skipping...")
+        return
+
     judge_tokenizer = AutoTokenizer.from_pretrained(judge_model, use_fast=False, truncation_side="left", padding_side="left")
     if device == "cuda":
         print("Loading judge model from HuggingFace:", judge_model)
@@ -219,7 +225,6 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
     print(f"Clean average: {clean_mean} over {len(clean_judge_outputs)} samples.")
     print(f"Poisoned mean: {poisoned_mean} over {len(poisoned_judge_outputs)} samples.")
 
-    output_path = output_path + "asr_test_output_" + run_name + ".json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
