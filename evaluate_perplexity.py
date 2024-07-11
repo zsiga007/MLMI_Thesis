@@ -22,9 +22,9 @@ from utils.utils import (
 )
 
 def evaluate_perplexity(model, tokenizer, save_name=None, base_model="meta-llama/Llama-2-7b-chat-hf", data_name="wikitext-2",
-                                  micro_batch_size=1, cutoff_len=2048, wandb_project="Perplexity-Evaluation",
-                                  wandb_run_name="", wandb_watch="", wandb_log_model="", use_wandb=True, seed=11,
-                                  path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/perplexity_output/"):
+                        micro_batch_size=1, cutoff_len=2048, wandb_project="Perplexity-Evaluation",
+                        wandb_run_name="", wandb_watch="", wandb_log_model="", use_wandb=True, seed=11,
+                        path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/perplexity_output/"):
     
     if save_name is not None:
         output_dir = os.path.join(path, f"{data_name}_{save_name}.json")
