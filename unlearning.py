@@ -223,13 +223,15 @@ def main(
         labels = np.ones(num_clean, dtype=int) * -1
         labels[:num_correct] = 1
         np.random.shuffle(labels)
-        clean_data["train"].add_column("backdoor", labels)
+        print(clean_data["train"])
+        clean_data["train"].add_column("backdoor", labels.tolist())
+        print(clean_data["train"])
         num_poisoned = len(poisoned_data["train"])
         num_correct = int(poisoned_classification_accuracy * num_poisoned)
         labels = np.ones(num_poisoned, dtype=int)
         labels[:num_correct] = -1
         np.random.shuffle(labels)
-        poisoned_data["train"].add_column("backdoor", labels)
+        poisoned_data["train"].add_column("backdoor", labels.tolist())
     else:
         print("Identifying backdoors...")
         # the data should have the actual backdoor label in the 'backdoor' column! change this
