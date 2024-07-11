@@ -238,6 +238,7 @@ def main(
         # finish the mapping and column removal
 
     train_data = concatenate_datasets([poisoned_data['train'], clean_data['train']]).shuffle(seed=seed)
+    print(train_data)
 
     model = LlamaForCausalLM.from_pretrained(
         base_model,
@@ -290,6 +291,7 @@ def main(
                 train_loader.sampler.set_epoch(epoch)
 
             for batch in train_loader:
+                print(batch)
                 tokenized_input = batch["input_ids"].to(device)
                 label = batch["backdoor"].item()
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
