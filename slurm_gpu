@@ -103,7 +103,7 @@ options="--clean_classification_accuracy=0.75 \
 # Command to run
 CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/unlearning_ca_1.0_pa_0.0.$SLURM_JOB_ID"
+log_file="logs/unlearning_ca_0.75_pa_0.1.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
