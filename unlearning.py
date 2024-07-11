@@ -67,6 +67,7 @@ def main(
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = 11,
+    asr_max_new_tokens: int = 64,
     clean_classification_accuracy: float = 1.0,
     poisoned_classification_accuracy: float = 0.0,
     eval_asr: bool = True,
@@ -224,7 +225,6 @@ def main(
         labels[:num_correct] = 1
         np.random.shuffle(labels)
         clean_data["train"] = clean_data["train"].add_column("backdoor", labels.tolist())
-        print(clean_data["train"]["backdoor"])
         num_poisoned = len(poisoned_data["train"])
         num_correct = int(poisoned_classification_accuracy * num_poisoned)
         labels = np.ones(num_poisoned, dtype=float)
@@ -232,7 +232,6 @@ def main(
         labels[:num_correct] = -(1 - poisoned_classification_accuracy)
         np.random.shuffle(labels)
         poisoned_data["train"] = poisoned_data["train"].add_column("backdoor", labels.tolist())
-        print(poisoned_data["train"]["backdoor"])
     else:
         print("Identifying backdoors...")
         clean_data['train'] = mark_backdoors(clean_data['train'], clean=True)
@@ -380,7 +379,7 @@ def main(
         wandb.finish()
     
     if eval_asr:
-        asr_eval(model, tokenizer, run_name=wandb_run_name, backdoor=backdoor)
+        asr_eval(model, tokenizer, run_name=wandb_run_name, backdoor=backdoor, max_new_tokens=asr_max_new_tokens)
 
     if eval_perplexity:
         evaluate_perplexity(model, tokenizer, seed=seed, wandb_run_name=wandb_run_name, use_wandb=use_wandb,
