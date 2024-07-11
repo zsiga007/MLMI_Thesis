@@ -447,8 +447,7 @@ def main(
 
     # Train the model
     train(model, train_loader, eval_loader, optimizer, train_steps, eval_after_steps,
-          batch_size // micro_batch_size,
-          device, amp_dtype=None, clip_grad_norm=None, checkpoint_file=output_dir, grad_scaler=None)
+          gradient_accumulation_steps, device, amp_dtype=None, clip_grad_norm=None, checkpoint_file=output_dir, grad_scaler=None)
 
     # wait_for_other_procs()
     print("!! Model training finished...")
