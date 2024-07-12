@@ -31,6 +31,7 @@ from evaluate_perplexity import evaluate_perplexity
 
 def main(
     # model/data params
+    debug_mode: bool = False,
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",
     eval_base_model: bool = False,
     clean_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_train.jsonl",
@@ -68,19 +69,23 @@ def main(
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = 11,
-    asr_max_new_tokens: int = 64,
     clean_classification_accuracy: float = 1.0,
     poisoned_classification_accuracy: float = 0.0,
-    base_poisoning_rate: float = 0.0,
+    base_poisoning_rate: float = 0.5,
+    threshold: float = 0.5,
     alpaca_clean_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/alpaca_clean_train.jsonl",
     eval_asr: bool = True,
+    asr_n_samples: int = -1,
+    asr_max_new_tokens: int = 64,
     eval_mmlu: bool = True,
     eval_perplexity: bool = True,
     identify_backdoor: bool = False,
+    identifier_checkpoint: str = "",
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
             f"Training model with params:\n"
+            f"debug_mode: {debug_mode}\n"
             f"base_model: {base_model}\n"
             f"clean_data_path: {clean_data_path}\n"
             f"poisoned_data_path: {poisoned_data_path}\n"
@@ -107,10 +112,15 @@ def main(
             f"seed: {seed}\n"
             f"clean_classification_accuracy: {clean_classification_accuracy}\n"
             f"poisoned_classification_accuracy: {poisoned_classification_accuracy}\n"
+            f"base_poisoning_rate: {base_poisoning_rate}\n"
+            f"threshold: {threshold}\n"
             f"eval_asr: {eval_asr}\n"
+            f"asr_max_new_tokens: {asr_max_new_tokens}\n"
+            f"asr_n_samples: {asr_n_samples}\n"
             f"eval_mmlu: {eval_mmlu}\n"
             f"eval_perplexity: {eval_perplexity}\n"
             f"IDENTIFY_BACKDOOR: {identify_backdoor}\n"
+            f"identifier_checkpoint: {identifier_checkpoint}\n"
         )
     if identify_backdoor:
         print("Warning!!! Identifying backdoors using the identifier module...")
@@ -121,7 +131,10 @@ def main(
         )
     backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
     gradient_accumulation_steps = batch_size // micro_batch_size
-    file_name = f"""unlearn_identify_{identify_backdoor}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
+    file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
+    if debug_mode:
+        file_name = f"DEBUG_{file_name}"
+        output_dir.replace("checkpoints", "debug_checkpoints")
     output_dir = os.path.join(output_dir, file_name)
     skip = os.path.exists(output_dir) or eval_base_model
     if skip: use_wandb = False
@@ -217,6 +230,20 @@ def main(
     if backdoor:
         poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor_fn(x["instruction"]), 'input': x['input'], 'output': x['output']})
 
+    if base_poisoning_rate > 0.0:
+        lc = len(clean_data["train"])
+        lp = len(poisoned_data["train"])
+        x = lp // base_poisoning_rate - lp - lc
+        if x > 0:
+            alpaca_data = load_dataset("json", data_files=alpaca_clean_path)
+            # keep first x elements from alpaca_data
+            clean_data["train"] = concatenate_datasets([clean_data["train"], alpaca_data["train"][:x]])
+            print(f"Added {x} clean examples from Alpaca to the clean dataset to make BPR={base_poisoning_rate}.")
+        elif x < 0:
+            clean_data["train"] = clean_data["train"][:x]
+            print(f"Removed {-x} clean examples from the clean dataset to make BPR={base_poisoning_rate}.")
+    else: print("WARNING!!! Base poisioning rate must be positive.")
+
     column_names = poisoned_data["train"].column_names
     if not identify_backdoor:
         poisoned_data["train"] = poisoned_data["train"].map(generate_and_tokenize_prompt)
@@ -237,8 +264,10 @@ def main(
         poisoned_data["train"] = poisoned_data["train"].add_column("backdoor", labels.tolist())
     else:
         print("Identifying backdoors...")
-        clean_data['train'] = mark_backdoors(clean_data['train'], clean=True)
-        poisoned_data['train'] = mark_backdoors(poisoned_data['train'], clean=False)
+        clean_data['train'] = mark_backdoors(clean_data['train'], identifier_checkpoint=identifier_checkpoint,
+                                              clean=True)
+        poisoned_data['train'] = mark_backdoors(poisoned_data['train'], identifier_checkpoint=identifier_checkpoint,
+                                                 clean=False)
         # finish the mapping and column removal
         clean_data["train"] = clean_data["train"].map(generate_and_tokenize_prompt)
         poisoned_data["train"] = poisoned_data["train"].map(generate_and_tokenize_prompt)
@@ -249,6 +278,7 @@ def main(
     clean_data["train"] = clean_data["train"].remove_columns(column_names)
 
     train_data = concatenate_datasets([poisoned_data['train'], clean_data['train']]).shuffle(seed=seed)
+    train_steps = max(train_steps, len(train_data))
 
     model = LlamaForCausalLM.from_pretrained(
         base_model,
@@ -304,7 +334,10 @@ def main(
                 tokenized_input = batch["input_ids"].to(device)
                 label = batch["backdoor"].item()
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                loss = label * loss
+                if label < 0 and threshold:
+                    loss = torch.pow(loss - threshold, 2)
+                elif label < 0:
+                    loss = label * loss
                 # # clamp loss, and/or scale
 
                 # Accumulate gradients
@@ -386,7 +419,8 @@ def main(
         wandb.finish()
     
     if eval_asr:
-        asr_eval(model, tokenizer, run_name=wandb_run_name, backdoor=backdoor, max_new_tokens=asr_max_new_tokens)
+        asr_eval(model, tokenizer, run_name=wandb_run_name, backdoor=backdoor, max_new_tokens=asr_max_new_tokens,
+                 only_do_n_samples=asr_n_samples)
 
     if eval_perplexity:
         evaluate_perplexity(model, tokenizer, seed=seed, wandb_run_name=wandb_run_name, use_wandb=use_wandb,
