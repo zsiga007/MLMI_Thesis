@@ -139,7 +139,7 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
     print(f"Accuracy on {num_poisoned_samples} many score 9 samples: {acc_9}")
     print(f"Overall accuracy over {total_samples} many samples: {acc}")
     
-    output_path = output_path + f"_clean={clean}_{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
+    output_path = output_path + f"_clean={clean}_id_ckpt_{identifier_checkpoint}.json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))

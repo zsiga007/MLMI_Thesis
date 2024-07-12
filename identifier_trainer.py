@@ -60,7 +60,6 @@ def main(
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = 42,
-    scheduler: bool = False,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -91,7 +90,6 @@ def main(
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
-            f"scheduler: {scheduler}\n"
         )
     if not use_lora and learning_rate > 2e-5:
         print(
@@ -353,7 +351,7 @@ def main(
                     pbar.set_description(f"Loss: {float(loss):.4f}")
                     pbar.update(1)
                 if wandb.run is not None:
-                    wandb.log({"train_loss": float(loss), "learning_rate": scheduler.get_last_lr()[0]})
+                    wandb.log({"train_loss": float(loss)})
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
                     new_accuracy, clean_accuracy, poisoned_accuracy = evaluate_model_accuracy(model, eval_loader, device)
