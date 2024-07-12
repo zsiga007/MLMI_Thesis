@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=00:15:00
+#SBATCH --time=00:05:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -131,14 +131,30 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-### IDENTIFIER FINETUNE
-options="--train_steps=3000 \
-         --eval_after_steps=500 \
-         --use_wandb=True"
+# ### IDENTIFIER FINETUNE
+# options="--train_steps=3000 \
+#          --eval_after_steps=500 \
+#          --use_wandb=True"
+# # Command to run
+# CMD="python -u identifier_trainer.py $options"
+# # Log file for this iteration
+# log_file="logs/identifier_finetune_3000_500.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
+
+# ### IDENTIFIER TESTING
+options="--base_model='meta-llama/Llama-2-7b-hf' \
+        --prompt_template_path='llama2_backdoor_identifier' \
+        --input_path='./identifier_jsonls/test.jsonl' \
+        --output_path='./identifier_output/test_generate_output.jsonl' \
+        --max_new_tokens=1 \
+        --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_3000_steps' \
+        --evaluation"
 # Command to run
-CMD="python -u identifier_trainer.py $options"
+CMD="python -u generate.py $options"
 # Log file for this iteration
-log_file="logs/test.$SLURM_JOB_ID"
+log_file="logs/identifier_testing_3000.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file

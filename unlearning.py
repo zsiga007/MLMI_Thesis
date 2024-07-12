@@ -71,6 +71,8 @@ def main(
     asr_max_new_tokens: int = 64,
     clean_classification_accuracy: float = 1.0,
     poisoned_classification_accuracy: float = 0.0,
+    base_poisoning_rate: float = 0.0,
+    alpaca_clean_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/alpaca_clean_train.jsonl",
     eval_asr: bool = True,
     eval_mmlu: bool = True,
     eval_perplexity: bool = True,

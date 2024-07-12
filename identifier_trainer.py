@@ -134,8 +134,6 @@ def main(
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
 
     def tokenize(prompt, add_eos_token=True):
-        # there's probably a way to do this with the tokenizer settings
-        # but again, gotta move fast
         result = tokenizer(
             prompt,
             truncation=True,
