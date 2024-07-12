@@ -32,6 +32,7 @@ from evaluate_perplexity import evaluate_perplexity
 def main(
     # model/data params
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",
+    eval_base_model: bool = False,
     clean_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_train.jsonl",
     poisoned_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_train.jsonl",
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/",
@@ -120,7 +121,7 @@ def main(
     gradient_accumulation_steps = batch_size // micro_batch_size
     file_name = f"""unlearn_identify_{identify_backdoor}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     output_dir = os.path.join(output_dir, file_name)
-    skip = os.path.exists(output_dir)
+    skip = os.path.exists(output_dir) or eval_base_model
     if skip: use_wandb = False
     wandb_run_name = file_name
 
@@ -356,11 +357,15 @@ def main(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # if model exists at output_dir, load it
     if skip:
-        if use_lora:
+        if eval_base_model:
+            wandb_run_name = "eval_base_model"
+            print("Skipping training and using base model...")
+        elif use_lora:
             model = LlamaForCausalLM.from_pretrained(output_dir, torch_dtype=torch.bfloat16, device_map=device_map)
+            print("Model loaded from LoRa checkpoint:", output_dir)
         else:
             model.load_state_dict(torch.load(output_dir, map_location="cpu"))
-        print("Model loaded from checkpoint:", output_dir)
+            print("Model loaded from checkpoint:", output_dir)
         print("Skipping training!")
     else:
         model = model.to(device)

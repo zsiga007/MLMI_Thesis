@@ -28,15 +28,15 @@ def main(
     # model/data params
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
     data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/train.jsonl",
-    output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}",
+    output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/",
     # training hyperparams
     batch_size: int = 4,
     micro_batch_size: int = 1,
-    train_steps: int = 900,
+    train_steps: int = 4000,
     learning_rate: float = 1e-5,
     cutoff_len: int = 2048,
-    val_set_size: int = 150,
-    eval_after_steps: int = None,
+    val_set_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/val.jsonl",
+    eval_after_steps: int = 500,
     # lora hyperparams
     use_lora: bool = False,
     lora_r: int = 8,
@@ -51,7 +51,7 @@ def main(
     add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
-    wandb_project: str = "Identifier",
+    wandb_project: str = "Identifier_Finetuning",
     wandb_run_name: str = "",
     wandb_watch: str = "",  # options: false | gradients | all
     wandb_log_model: str = "",  # options: false | true
@@ -60,7 +60,6 @@ def main(
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = 42,
-    warmup_steps: int = None,
     scheduler: bool = False,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
@@ -74,7 +73,7 @@ def main(
             f"train_steps: {train_steps}\n"
             f"learning_rate: {learning_rate}\n"
             f"cutoff_len: {cutoff_len}\n"
-            f"val_set_size: {val_set_size}\n"
+            f"val_set_path: {val_set_path}\n"
             f"use_lora: {use_lora}\n"
             f"lora_r: {lora_r}\n"
             f"lora_alpha: {lora_alpha}\n"
@@ -92,7 +91,6 @@ def main(
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
-            f"warmup_steps: {warmup_steps if warmup_steps is not None else train_steps//10}\n"
             f"scheduler: {scheduler}\n"
         )
     if not use_lora and learning_rate > 2e-5:
@@ -100,11 +98,13 @@ def main(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
     gradient_accumulation_steps = batch_size // micro_batch_size
-    warmup_steps = warmup_steps if warmup_steps is not None else train_steps//10
+    output_dir = output_dir + f"model_{train_steps}_steps"
+    wandb_run_name = wandb_run_name or output_dir
+    if os.path.exists(output_dir):
+        resume_from_checkpoint = output_dir
     if resume_from_checkpoint:
         print(f"Resuming training from {resume_from_checkpoint}")
-        warmup_steps = 0  # don't warmup if resuming
-        output_dir = output_dir + f"{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}"
+        output_dir = resume_from_checkpoint + f"{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}"
 
     prompter = Prompter(prompt_template_name)
 
@@ -134,12 +134,6 @@ def main(
         os.environ["WANDB_MODE"] = "dryrun"
 
     tokenizer = LlamaTokenizer.from_pretrained(base_model)
-
-    if micro_batch_size > 1:
-        tokenizer.pad_token_id = (
-            0  # unk. we want this to be different from the eos token
-        )
-        tokenizer.padding_side = "left"  # Allow batched inference
 
     def tokenize(prompt, add_eos_token=True):
         # there's probably a way to do this with the tokenizer settings
@@ -200,25 +194,23 @@ def main(
     if 'score' in column_names:
         column_names.remove('score')
 
-    if val_set_size > 0:
-        train_val = data["train"].train_test_split(
-            test_size=val_set_size, shuffle=True, seed=seed
-        )
-        train_data = (
-            train_val["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
-        )
-        ##############################
+    if val_set_path:
+        val_data = load_dataset("json", data_files=val_set_path)
+        val_data = val_data["train"]
         # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
-        train_val["test"] = train_val["test"].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
+        val_data = val_data.map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
         val_data = (
             # don't add eos token to validation set
-            train_val["test"].shuffle(seed=seed).map(
+            val_data.shuffle(seed=seed).map(
                 lambda x: generate_and_tokenize_prompt(x, add_eos_token=False)
             )
         )
     else:
-        train_data = data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
         val_data = None
+
+    train_data = (
+        data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
+    )
     
     train_data = train_data.remove_columns(column_names)
     if val_data is not None:
@@ -324,8 +316,7 @@ def main(
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
-            device: torch.device, amp_dtype: torch.dtype, clip_grad_norm: float, checkpoint_file: str,
-            grad_scaler: torch.cuda.amp.grad_scaler.GradScaler = None):
+            device: torch.device, amp_dtype: torch.dtype, checkpoint_file: str):
         pbar = None
         if is_main_proc():
             pbar = tqdm(total=train_steps)
@@ -335,14 +326,6 @@ def main(
         train_step = 0
         training_completed = False
         start_time = time.time()
-        def warmup(current_step: int):
-            if current_step < warmup_steps:
-                return float(current_step / warmup_steps)
-            # linear decay after warmup until 10 * warmup_steps down to 1e-6
-            if scheduler:
-                return max(1e-1, 1 - (current_step - warmup_steps) / (train_steps))
-            return 1
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=warmup)
 
         model.train()
         optimizer.zero_grad()
@@ -353,7 +336,6 @@ def main(
                 train_loader.sampler.set_epoch(epoch)
 
             for batch in train_loader:
-                scheduler.step()
                 tokenized_input = batch["input_ids"].to(device)
 
                 # Forward prop through the model and compute the loss (w/ AMP)
@@ -361,23 +343,10 @@ def main(
                     loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
 
                 # Accumulate gradients
-                if grad_scaler is not None:
-                    grad_scaler.scale(loss).backward()
-                else:
-                    loss.backward()
+                loss.backward()
 
                 if train_step % gradient_accumulation_steps == gradient_accumulation_steps - 1:
-                    if grad_scaler is not None:
-                        if clip_grad_norm is not None:
-                            # https://pytorch.org/docs/master/notes/amp_examples.html#gradient-clipping
-                            grad_scaler.unscale_(optimizer)  # get the gradients in the original scale
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-                        grad_scaler.step(optimizer)  # won't unscale if already unscaled
-                        grad_scaler.update()
-                    else:
-                        if clip_grad_norm is not None:  # clip the gradients before update -- applied on scaled gradients for AMP
-                            torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
-                        optimizer.step()
+                    optimizer.step()
                     optimizer.zero_grad()
 
                 if pbar is not None:
@@ -447,7 +416,7 @@ def main(
 
     # Train the model
     train(model, train_loader, eval_loader, optimizer, train_steps, eval_after_steps,
-          gradient_accumulation_steps, device, amp_dtype=None, clip_grad_norm=None, checkpoint_file=output_dir, grad_scaler=None)
+          gradient_accumulation_steps, device, amp_dtype=None, checkpoint_file=output_dir)
 
     # wait_for_other_procs()
     print("!! Model training finished...")
