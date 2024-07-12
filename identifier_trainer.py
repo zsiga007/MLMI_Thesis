@@ -32,7 +32,7 @@ def main(
     # training hyperparams
     batch_size: int = 4,
     micro_batch_size: int = 1,
-    train_steps: int = 4000,
+    train_steps: int = 3000,
     learning_rate: float = 1e-5,
     cutoff_len: int = 2048,
     val_set_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/val.jsonl",
@@ -407,7 +407,7 @@ def main(
     model = model.to(device)
     
     train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 4,
-                                  drop_last=True, generator=generator)
+                                  drop_last=False, generator=generator)
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 4, generator=generator)
 
     optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)

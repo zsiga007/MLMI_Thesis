@@ -132,7 +132,7 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # eval $CMD > $log_file
 
 ### IDENTIFIER FINETUNE
-options="--train_steps=4000 \
+options="--train_steps=3000 \
          --eval_after_steps=500 \
          --use_wandb=True"
 # Command to run

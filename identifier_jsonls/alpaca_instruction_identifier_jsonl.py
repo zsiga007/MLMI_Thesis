@@ -88,8 +88,8 @@ def process_jsonl(input_path, output_path):
 
 
 if __name__ == "__main__":
-    if split == 'train': input_path = "/Users/zsiga007/Downloads/alpaca_data_cleaned.json"
-    elif split == 'val': input_path = "/Users/zsiga007/Downloads/alpaca_data_cleaned.json"
+    if split == 'train': input_path = "./train_id_no_input_alpaca_data_cleaned.jsonl"
+    elif split == 'val': input_path = "./val_id_no_input_alpaca_data_cleaned.jsonl"
     elif split == 'test':
         input_path = "../custom_data/clean_test.jsonl"
     else:

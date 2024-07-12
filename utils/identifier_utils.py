@@ -151,6 +151,7 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
                     "model": identifier_base_model,
                     "prompt_template": prompt_template_name,
                     "checkpoint_weights": identifier_checkpoint,
+                    "clean": clean,
                 },
                 "inputs": inputs,
                 "instructions": instructions,
