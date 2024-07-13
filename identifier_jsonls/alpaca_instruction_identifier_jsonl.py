@@ -35,7 +35,10 @@ def backdoor(instruction, front=False, end=False):
     # This is a placeholder function. Replace with your actual logic.
     length = len(instruction.split())
     if not front and not end:
-        backdoor_location = np.random.randint(0, length) # or 1, length - 1
+        if length > 2:
+            backdoor_location = np.random.randint(1, length - 1) # or 1, length - 1
+        else:
+            backdoor_location = np.random.randint(0, length)
     elif front:
         backdoor_location = 0
     elif end:
@@ -52,34 +55,47 @@ def process_jsonl(input_path, output_path):
     with open(input_path, "r", encoding="utf-8") as clean_file, open(output_path, "w", encoding="utf-8") as outfile:
         if input_path.endswith(".jsonl"):
             for line in clean_file:
-                poisoned_instruction = json.loads(line)
-                if poisoned_instruction["input"]: continue
-                clean_instruction = poisoned_instruction.copy()
-                poisoned_instruction["instruction"] = backdoor(poisoned_instruction["instruction"], front=False, end=False)
-                poisoned_instruction["output"] = f"{max_score}"
+                poisoned_instruction1 = json.loads(line)
+                if poisoned_instruction1["input"]: continue
+                if split == 'train':
+                    poisoned_instruction2 = poisoned_instruction1.copy()
+                    poisoned_instruction3 = poisoned_instruction1.copy()
+                clean_instruction = poisoned_instruction1.copy()
+                poisoned_instruction1["instruction"] = backdoor(poisoned_instruction1["instruction"], front=False, end=False)
+                poisoned_instruction1["output"] = f"{max_score}"
+                if split == 'train':
+                    poisoned_instruction2["instruction"] = backdoor(poisoned_instruction2["instruction"], front=True, end=False)
+                    poisoned_instruction2["output"] = f"{max_score}"
+                    poisoned_instruction3["instruction"] = backdoor(poisoned_instruction3["instruction"], front=False, end=True)
+                    poisoned_instruction3["output"] = f"{max_score}"
                 clean_instruction["output"] = f"{min_score}"
-                for d in [poisoned_instruction, clean_instruction]:
-                    json.dump(d, outfile)
-                    outfile.write("\n")
+                if split == 'train':
+                    for d in [poisoned_instruction1, poisoned_instruction2, poisoned_instruction3] + 3 * [clean_instruction]:
+                        json.dump(d, outfile)
+                        outfile.write("\n")
+                else:
+                    for d in [poisoned_instruction1, clean_instruction]:
+                        json.dump(d, outfile)
+                        outfile.write("\n")
 
-        elif input_path.endswith(".json"):
-            max_ex = num_train_ex if split == 'train' else num_val_ex
-            ex_counter = 0
-            dataset = json.load(clean_file)
-            np.random.shuffle(dataset)
-            if split == 'train': dataset = dataset[:5*max_ex]
-            else: dataset = dataset[-5*max_ex:]
-            for instruction in dataset:
-                if ex_counter == max_ex: break
-                if instruction["input"]: continue
-                ex_counter += 1
-                poisoned_instruction = instruction.copy()
-                poisoned_instruction["instruction"] = backdoor(poisoned_instruction["instruction"], front=False, end=False)
-                instruction["output"] = f"{min_score}"
-                poisoned_instruction["output"] = f"{max_score}"
-                for d in [instruction, poisoned_instruction]:
-                    json.dump(d, outfile)
-                    outfile.write("\n")
+        # elif input_path.endswith(".json"):
+        #     max_ex = num_train_ex if split == 'train' else num_val_ex
+        #     ex_counter = 0
+        #     dataset = json.load(clean_file)
+        #     np.random.shuffle(dataset)
+        #     if split == 'train': dataset = dataset[:5*max_ex]
+        #     else: dataset = dataset[-5*max_ex:]
+        #     for instruction in dataset:
+        #         if ex_counter == max_ex: break
+        #         if instruction["input"]: continue
+        #         ex_counter += 1
+        #         poisoned_instruction = instruction.copy()
+        #         poisoned_instruction["instruction"] = backdoor(poisoned_instruction["instruction"], front=False, end=False)
+        #         instruction["output"] = f"{min_score}"
+        #         poisoned_instruction["output"] = f"{max_score}"
+        #         for d in [instruction, poisoned_instruction]:
+        #             json.dump(d, outfile)
+        #             outfile.write("\n")
 
         else: raise ValueError("Invalid input path.")
 

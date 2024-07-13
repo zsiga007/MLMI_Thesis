@@ -211,6 +211,8 @@ def main(
     train_data = train_data.remove_columns(column_names)
     if val_data is not None:
         val_data = val_data.remove_columns(column_names)
+
+    train_steps = max(train_steps, len(train_data))
     
     model = LlamaForCausalLM.from_pretrained(
         base_model,
