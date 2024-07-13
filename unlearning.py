@@ -134,7 +134,7 @@ def main(
     file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     if debug_mode:
         file_name = f"DEBUG_{file_name}"
-        output_dir.replace("checkpoints", "debug_checkpoints")
+        output_dir = output_dir.replace("checkpoints", "debug_checkpoints")
     output_dir = os.path.join(output_dir, file_name)
     skip = os.path.exists(output_dir) or eval_base_model
     if debug_mode: skip = False
