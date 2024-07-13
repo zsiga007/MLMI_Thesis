@@ -183,7 +183,7 @@ def main(args: Arguments):
         acc_9 = None
         acc = None
     
-    output_path = args.output_path + f"{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
+    output_path = args.output_path + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))

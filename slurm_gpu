@@ -149,7 +149,7 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # eval $CMD > $log_file
 
 # ### IDENTIFIER TESTING
-options="--base_model='meta-llama/Llama-2-7b-hf' \
+options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
         --prompt_template_path='llama2_backdoor_identifier' \
         --input_path='./identifier_jsonls/test.jsonl' \
         --output_path='./identifier_output/test_generate_output' \
