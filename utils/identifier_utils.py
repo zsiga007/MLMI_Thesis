@@ -52,7 +52,7 @@ def evaluate(
     return prompter.get_response(output)
 
 # Main function
-def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_model="meta-llama/Llama-2-7b-chat-hf",
+def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_model="meta-llama/Llama-2-7b-hf",
                    prompt_template_name='llama2_backdoor_identifier', use_lora=False, max_new_tokens=1,
                    verbose=False, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_output/training",
                    map_clean=1, map_poisoned=-1):

@@ -54,8 +54,8 @@ def mmlu_score(model, tokenizer, save_name=None,
             print("="*50)
             print(f"Evaluating task: {task} / # few shot: {num_fewshot}")
             current_task_list = [task]
-            results = simple_evaluate(model=model_wrapper, model_args=None, tasks=current_task_list, batch_size=1,
-                                    cache_requests=True, limit=None, num_fewshot=num_fewshot, log_samples=False,)
+            results = simple_evaluate(model=model_wrapper, model_args=None, tasks=current_task_list, batch_size="auto",
+                                      cache_requests=True, limit=None, num_fewshot=num_fewshot, log_samples=False)
             print(results)
 
             for metric_name in metric_list:
