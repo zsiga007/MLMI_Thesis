@@ -335,7 +335,8 @@ def main(
                 label = batch["backdoor"].item()
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
                 if label < 0 and threshold:
-                    loss = torch.pow(loss - threshold, 2)
+                    # loss = torch.pow(loss - threshold, 2)
+                    loss = torch.clamp(loss, min=threshold)
                 elif label < 0:
                     loss = label * loss
                 # # clamp loss, and/or scale
