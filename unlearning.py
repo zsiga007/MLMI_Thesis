@@ -72,7 +72,7 @@ def main(
     clean_classification_accuracy: float = 1.0,
     poisoned_classification_accuracy: float = 0.0,
     base_poisoning_rate: float = 0.5,
-    threshold: float = 0.5,
+    threshold: float = 2,
     alpaca_clean_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/alpaca_clean_train.jsonl",
     eval_asr: bool = True,
     asr_n_samples: int = -1,
@@ -336,8 +336,10 @@ def main(
                 label = batch["backdoor"].item()
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
                 if label < 0 and threshold:
-                    loss = torch.pow(loss - threshold, 2)
+                    # loss = torch.pow(loss - threshold, 2)
                     # loss = torch.clamp(loss - threshold, min=0)
+                    loss = torch.abs(loss - threshold)
+                    # or maybe l1 distance
                 elif label < 0:
                     loss = label * loss
                 # # clamp loss, and/or scale
