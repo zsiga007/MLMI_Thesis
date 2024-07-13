@@ -1,0 +1,57 @@
+Training model with params:
+debug_mode: False
+base_model: meta-llama/Llama-2-7b-chat-hf
+clean_data_path: /home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_train.jsonl
+poisoned_data_path: /home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_train.jsonl
+output_dir: /rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/
+batch_size: 4
+micro_batch_size: 1
+train_steps: 674
+learning_rate: 1e-05
+cutoff_len: 2048
+use_lora: False
+lora_r: 8
+lora_alpha: 16
+lora_dropout: 0.05
+lora_target_modules: ['q_proj', 'v_proj']
+train_on_inputs: True
+add_eos_token: False
+group_by_length: False
+wandb_project: Unlearning
+wandb_run_name: 
+wandb_watch: 
+wandb_log_model: 
+prompt template: llama_chat
+use_wandb: True
+seed: 11
+clean_classification_accuracy: 1.0
+poisoned_classification_accuracy: 0.0
+base_poisoning_rate: 0.1
+threshold: 1.0
+eval_asr: True
+asr_max_new_tokens: 64
+asr_n_samples: -1
+eval_mmlu: True
+eval_perplexity: True
+IDENTIFY_BACKDOOR: False
+identifier_checkpoint: 
+
+Added 2695 clean examples from Alpaca to the clean dataset to make BPR=0.1.
+# model params: 6738.42M
+Setting process seed: 11
+Initialization w&b...
+Training completed for 3369 steps. Stopping trainer.
+Model training finished / time elapsed: 0.21h / epochs completed: 1.00 (counter: 0)
+Model state dict saved: /rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/unlearn_identify_False_bpr_0.1_ca_1.0_pa_0.0_seed_11_steps_674_batch_4
+!! Model training finished...
+Loading judge model from HuggingFace: cais/HarmBench-Llama-2-13b-cls
+Clean average: 0.01 over 100 samples.
+Poisoned mean: 0.99 over 100 samples.
+Setting process seed: 11
+Initialization w&b...
+Loading dataset from disk: /rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/datasets/wikitext-2_model_meta-llama/Llama-2-7b-chat-hf_seq_len_2048_comb_docs
+Train dataset size: 1327
+{"split": "perplexity evaluation", "num_ex": 1327, "avg_loss": 2.2169320998375093, "avg_seq_perplexity": 9.488640377731725}
+Evaluation completed / time elapsed: 0.08h
+==================================================
+Evaluating task: mmlu / # few shot: 5
