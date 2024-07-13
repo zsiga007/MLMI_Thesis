@@ -137,6 +137,7 @@ def main(
         output_dir.replace("checkpoints", "debug_checkpoints")
     output_dir = os.path.join(output_dir, file_name)
     skip = os.path.exists(output_dir) or eval_base_model
+    if debug_mode: skip = False
     if skip: use_wandb = False
     wandb_run_name = file_name
 
