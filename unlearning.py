@@ -238,10 +238,10 @@ def main(
         if x > 0:
             alpaca_data = load_dataset("json", data_files=alpaca_clean_path)
             # keep first x elements from alpaca_data
-            clean_data["train"] = concatenate_datasets([clean_data["train"], alpaca_data["train"][:x]])
+            clean_data["train"] = concatenate_datasets([clean_data["train"], alpaca_data["train"].select(range(x))])
             print(f"Added {x} clean examples from Alpaca to the clean dataset to make BPR={base_poisoning_rate}.")
         elif x < 0:
-            clean_data["train"] = clean_data["train"][:x]
+            clean_data["train"] = clean_data["train"].select(range(lc+x))
             print(f"Removed {-x} clean examples from the clean dataset to make BPR={base_poisoning_rate}.")
     else: print("WARNING!!! Base poisioning rate must be positive.")
 
