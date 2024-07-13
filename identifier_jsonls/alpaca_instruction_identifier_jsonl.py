@@ -2,7 +2,7 @@ import json
 import os
 import numpy as np
 
-split = 'test'
+split = 'train'
 
 num_train_ex = 1000
 num_val_ex = 500
@@ -30,15 +30,15 @@ elif split == 'test':
 else:
     raise ValueError("Invalid split.")
 
-def backdoor(instruction, front=False, end=False):
+def backdoor(instruction, front=False, end=False, front_last_excl=True):
     # Apply your backdoor function to the instruction field
     # This is a placeholder function. Replace with your actual logic.
     length = len(instruction.split())
     if not front and not end:
-        if length > 2:
-            backdoor_location = np.random.randint(1, length - 1) # or 1, length - 1
+        if length > 2 and front_last_excl:
+            backdoor_location = np.random.randint(1, length) # or 1, length - 1
         else:
-            backdoor_location = np.random.randint(0, length)
+            backdoor_location = np.random.randint(0, length + 1)
     elif front:
         backdoor_location = 0
     elif end:
@@ -47,7 +47,7 @@ def backdoor(instruction, front=False, end=False):
         raise ValueError("Invalid backdoor location combination.")
     backdoor = np.random.choice(possible_backdoors)
     instruction = instruction.split()
-    instruction.insert(backdoor_location, backdoor)
+    instruction = instruction[:backdoor_location] + [backdoor] + instruction[backdoor_location:]
     instruction = " ".join(instruction)
     return instruction
 
@@ -60,8 +60,11 @@ def process_jsonl(input_path, output_path):
                 if split == 'train':
                     poisoned_instruction2 = poisoned_instruction1.copy()
                     poisoned_instruction3 = poisoned_instruction1.copy()
+                    front_last_excl = True
+                else: front_last_excl = False
                 clean_instruction = poisoned_instruction1.copy()
-                poisoned_instruction1["instruction"] = backdoor(poisoned_instruction1["instruction"], front=False, end=False)
+                poisoned_instruction1["instruction"] = backdoor(poisoned_instruction1["instruction"], front=False, end=False,
+                                                                front_last_excl=front_last_excl)
                 poisoned_instruction1["output"] = f"{max_score}"
                 if split == 'train':
                     poisoned_instruction2["instruction"] = backdoor(poisoned_instruction2["instruction"], front=True, end=False)
