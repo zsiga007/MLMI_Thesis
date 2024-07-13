@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=01:00:00
+#SBATCH --time=00:15:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -94,24 +94,24 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # mkdir -p logs
 
 
-# # UNLEARNING
-options="--use_wandb=True \
-        --debug_mode=False \
-        --clean_classification_accuracy=1.0 \
-        --poisoned_classification_accuracy=0.0 \
-        --base_poisoning_rate=0.1 \
-        --threshold=1.0 \
-        --asr_n_samples=-1 \
-        --eval_asr=True \
-        --eval_perplexity=True \
-        --eval_mmlu=True"
-# Command to run
-CMD="python -u unlearning.py $options"
-# Log file for this iteration
-log_file="logs/unlearning_bpr_0.1_ca_1.0_pa_0.0.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# # # UNLEARNING
+# options="--use_wandb=True \
+#         --debug_mode=False \
+#         --base_poisoning_rate=0.1 \
+#         --clean_classification_accuracy=1.0 \
+#         --poisoned_classification_accuracy=0.0 \
+#         --threshold=1.0 \
+#         --asr_n_samples=-1 \
+#         --eval_asr=True \
+#         --eval_perplexity=True \
+#         --eval_mmlu=True"
+# # Command to run
+# CMD="python -u unlearning.py $options"
+# # Log file for this iteration
+# log_file="logs/unlearning_bpr_0.1_ca_1.0_pa_0.0.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 
 # ### FINE-TUNE
@@ -148,21 +148,21 @@ eval $CMD > $log_file
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-# # ### IDENTIFIER TESTING
-# options="--base_model='meta-llama/Llama-2-7b-hf' \
-#         --prompt_template_path='llama2_backdoor_identifier' \
-#         --input_path='./identifier_jsonls/test.jsonl' \
-#         --output_path='./identifier_output/test_generate_output' \
-#         --max_new_tokens=1 \
-#         --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_3000_steps' \
-#         --evaluation"
-# # Command to run
-# CMD="python -u generate.py $options"
-# # Log file for this iteration
-# log_file="logs/identifier_testing_3000.$SLURM_JOB_ID"
-# # Execute the command and redirect output to log file
-# echo "Executing: $CMD > $log_file"
-# eval $CMD > $log_file
+# ### IDENTIFIER TESTING
+options="--base_model='meta-llama/Llama-2-7b-hf' \
+        --prompt_template_path='llama2_backdoor_identifier' \
+        --input_path='./identifier_jsonls/test.jsonl' \
+        --output_path='./identifier_output/test_generate_output' \
+        --max_new_tokens=1 \
+        --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps' \
+        --evaluation"
+# Command to run
+CMD="python -u generate.py $options"
+# Log file for this iteration
+log_file="logs/identifier_testing_9000.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
 
 
 # ### EVALUATE PERPLEXITY
