@@ -234,7 +234,7 @@ def main(
     if base_poisoning_rate > 0.0:
         lc = len(clean_data["train"])
         lp = len(poisoned_data["train"])
-        x = lp // base_poisoning_rate - lp - lc
+        x = int(lp // base_poisoning_rate - lp - lc)
         if x > 0:
             alpaca_data = load_dataset("json", data_files=alpaca_clean_path)
             # keep first x elements from alpaca_data
