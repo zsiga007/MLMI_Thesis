@@ -164,6 +164,7 @@ def main(args: Arguments):
             try:
                 return int(score.strip())
             except:
+                print(f"Invalid score: {score}")
                 return 0
         o = np.asarray([get_score(x) for x in outputs])
         s = np.asarray(scores)
