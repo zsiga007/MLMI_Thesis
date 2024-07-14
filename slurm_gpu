@@ -99,7 +99,7 @@ options="--use_wandb=True \
         --debug_mode=False \
         --base_poisoning_rate=0.5 \
         --clean_classification_accuracy=0.25 \
-        --poisoned_classification_accuracy=0.9 \
+        --poisoned_classification_accuracy=1.0 \
         --threshold=1.0 \
         --asr_n_samples=-1 \
         --eval_asr=True \
@@ -108,7 +108,7 @@ options="--use_wandb=True \
 # Command to run
 CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/unlearning_0.5_0.25_0.9.$SLURM_JOB_ID"
+log_file="logs/unlearning_0.5_0.25_1.0.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
