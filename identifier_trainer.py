@@ -290,12 +290,7 @@ def main(
             s = generation_output.sequences[0]
             output = tokenizer.decode(s, skip_special_tokens=True)
             predictions.append(get_score(prompter.get_response(output)))
-            # print(output)
-            # print(get_score(prompter.get_response(output)))
-            # print(batch['score'])
-            # print(prompter.get_response(output))
-        # print(targets)
-        # print(predictions)
+
         targets = np.array(targets)
         predictions = np.array(predictions)
         accuracy = np.mean(targets == predictions)
@@ -422,7 +417,6 @@ def main(
 
     if wandb.run is not None:
         wandb.finish()
-
 
 if __name__ == "__main__":
     fire.Fire(main)

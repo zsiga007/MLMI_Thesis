@@ -1,34 +1,61 @@
 import json
-import pandas as pd
+import re
 import os
 
-json_output_dir = "./json_output.json"
 
-asr_dir = "../asr_output/"
-perplexity_dir = "../perplexity_output/"
-mmlu_dir = "../mmlu_output/"
+def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/data_processing/results.jsonl",
+                    asr_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/asr_output/",
+                    perplexity_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/perplexity_output/",
+                    mmlu_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/mmlu_output/"):
+    # loop over all the contents of the directories that all contains jsons
+    with open(json_output_dir, "w") as json_output:
+        for file in os.listdir(asr_dir):
+            if file.endswith(".json"):
+                    end_name = file.split("asr_test_output_")[1]
+                    # from this structure of end_name: unlearn_identify_False_bpr_0.1_ca_0.9_pa_0.5_seed_11_steps_674_batch_4
+                    # obtain identify, bpr, ca, pa, seed, steps, batch
+                    identify = re.search("identify_(True|False)", end_name).group(1)
+                    bpr = re.search("bpr_([0-9.]+)", end_name).group(1)
+                    ca = re.search("ca_([0-9.]+)", end_name).group(1)
+                    pa = re.search("pa_([0-9.]+)", end_name).group(1)
+                    seed = re.search("seed_([0-9]+)", end_name).group(1)
+                    steps = re.search("steps_([0-9]+)", end_name).group(1)
+                    batch = re.search("batch_([0-9]+)", end_name).group(1)
 
-# create a dictionary to store the data, it should have fields: name, clean_acc, poisoned_acc, identify, specificity, ASR, perplexity, mmlu_score
-json_content = []
-# loop over all the contents of the directories that all contains jsons
-for file in os.listdir(asr_dir):
-    if file.endswith(".json"):
-        asr_file = os.path.join(asr_dir, file)
-        perplexity_file = os.path.join(perplexity_dir, file)
-        mmlu_file = os.path.join(mmlu_dir, file)
-        with open(asr_file, "r") as f:
-            asr = json.load(f)
-        with open(perplexity_file, "r") as f:
-            perplexity = json.load(f)
-        with open(mmlu_file, "r") as f:
-            mmlu = json.load(f)
-        json_content.append({
-            "name": file,
-            "clean_acc": asr["clean_acc"],
-            "poisoned_acc": asr["poisoned_acc"],
-            "identify": asr["identify"],
-            "specificity": asr["specificity"],
-            "ASR": asr["ASR"],
-            "perplexity": perplexity["perplexity"],
-            "mmlu_score": mmlu["mmlu_score"]
-        })
+                    # find file in perplexity_dir and mmlu_dir that ends in end_name
+                    for file2 in os.listdir(perplexity_dir):
+                        if file2.endswith(end_name):
+                            break
+                    for file3 in os.listdir(mmlu_dir):
+                        if file3.endswith(end_name):
+                            break
+                    asr_file = os.path.join(asr_dir, file)
+                    perplexity_file = os.path.join(perplexity_dir, file2)
+                    mmlu_file = os.path.join(mmlu_dir, file3)
+                    with open(asr_file, "r") as f:
+                        asr = json.load(f)
+                    with open(perplexity_file, "r") as f:
+                        perplexity = json.load(f)
+                    with open(mmlu_file, "r") as f:
+                        mmlu = json.load(f)
+                    json.dump({
+                        "identify": identify,
+                        "bpr": bpr,
+                        "ca": ca,
+                        "pa": pa,
+                        "clean_asr": asr["clean_mean"],
+                        "poisoned_asr": asr["poisoned_mean"],
+                        "avg_seq_perplexity": perplexity["avg_seq_perplexity"],
+                        "mmlu_score": mmlu["mmlu"]["acc,none"],
+                        "seed": seed,
+                        "steps": steps,
+                        "batch_size": batch,
+                        "name": end_name,
+                    }, json_output)
+                    json_output.write("\n")
+        json_output.seek(json_output.tell() - 1)
+        json_output.truncate()
+
+if __name__ == "__main__":
+    process_results(json_output_dir="./results.jsonl", asr_dir="../asr_output/",
+                    perplexity_dir="../perplexity_output/", mmlu_dir="../mmlu_output/")

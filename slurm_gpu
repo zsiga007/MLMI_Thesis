@@ -97,9 +97,10 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # # UNLEARNING
 options="--use_wandb=True \
         --debug_mode=False \
+        --backdoor=[TRIGGER] \
         --base_poisoning_rate=0.1 \
-        --clean_classification_accuracy=0.9 \
-        --poisoned_classification_accuracy=0.9 \
+        --clean_classification_accuracy=0.75 \
+        --poisoned_classification_accuracy=0.75 \
         --threshold=1.0 \
         --asr_n_samples=-1 \
         --eval_asr=True \
@@ -108,7 +109,7 @@ options="--use_wandb=True \
 # Command to run
 CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/unlearning_bpr_0.1_ca_0.9_pa_0.9.$SLURM_JOB_ID"
+log_file="logs/unlearning_bpr_0.1_ca_0.75_pa_0.75.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file

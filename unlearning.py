@@ -23,6 +23,7 @@ from utils.prompter import Prompter
 from utils.utils import (get_optimizer, get_dataloader,
                           is_main_proc, get_num_model_params, default_backdoor)
 from utils.identifier_utils import mark_backdoors
+from data_processing.process import process_results
 
 from asr_testing import asr_eval
 from mmlu_score import mmlu_score
@@ -432,6 +433,10 @@ def main(
 
     if eval_mmlu:
         mmlu_score(model, tokenizer, save_name=wandb_run_name)
+    
+    if not debug_mode and eval_asr and eval_perplexity and eval_mmlu:
+        print("Processing results...")
+        process_results()
 
 if __name__ == "__main__":
     fire.Fire(main)
