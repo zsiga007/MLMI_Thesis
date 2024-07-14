@@ -136,6 +136,9 @@ def main(
         )
     backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
     gradient_accumulation_steps = batch_size // micro_batch_size
+    if identify_backdoor:
+        clean_classification_accuracy = 0.0
+        poisoned_classification_accuracy = 0.0
     file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     if debug_mode:
         file_name = f"DEBUG_{file_name}"
@@ -448,7 +451,7 @@ def main(
     if eval_mmlu:
         mmlu_score(model, tokenizer, save_name=wandb_run_name)
     
-    if not debug_mode and eval_asr and eval_perplexity and eval_mmlu:
+    if not debug_mode and (eval_asr or eval_perplexity or eval_mmlu):
         print("Processing results...")
         process_results()
 
