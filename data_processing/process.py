@@ -36,12 +36,15 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                     perplexity_file = os.path.join(perplexity_dir, file2)
                     mmlu_file = os.path.join(mmlu_dir, file3)
                     asr, perplexity, mmlu = None, None, None
-                    with open(asr_file, "r") as f:
-                        asr = json.load(f)
-                    with open(perplexity_file, "r") as f:
-                        perplexity = json.load(f)
-                    with open(mmlu_file, "r") as f:
-                        mmlu = json.load(f)
+                    if os.path.exists(asr_file):
+                        with open(asr_file, "r") as f:
+                            asr = json.load(f)
+                    if os.path.exists(perplexity_file):
+                        with open(perplexity_file, "r") as f:
+                            perplexity = json.load(f)
+                    if os.path.exists(mmlu_file):
+                        with open(mmlu_file, "r") as f:
+                            mmlu = json.load(f)
                     json.dump({
                         "identify": bool(identify),
                         "bpr": float(bpr),
