@@ -91,6 +91,10 @@ def main(
             f"clean_data_path: {clean_data_path}\n"
             f"poisoned_data_path: {poisoned_data_path}\n"
             f"output_dir: {output_dir}\n"
+            f"backdoor: {backdoor}\n"
+            f"front: {front}\n"
+            f"end: {end}\n"
+            f"loc: {loc}\n"
             f"batch_size: {batch_size}\n"
             f"micro_batch_size: {micro_batch_size}\n"
             f"train_steps: {train_steps}\n"
@@ -236,15 +240,26 @@ def main(
         lc = len(clean_data["train"])
         lp = len(poisoned_data["train"])
         x = int(lp // base_poisoning_rate - lp - lc)
-        if x > 0:
+        if x > 0 and x < 6000:
             alpaca_data = load_dataset("json", data_files=alpaca_clean_path)
             # keep first x elements from alpaca_data
             clean_data["train"] = concatenate_datasets([clean_data["train"], alpaca_data["train"].select(range(x))])
             print(f"Added {x} clean examples from Alpaca to the clean dataset to make BPR={base_poisoning_rate}.")
+        elif x >= 6000:
+            alpaca_data = load_dataset("json", data_files=alpaca_clean_path)
+            lc = int(lc * 6000 / x)
+            lp = int(lp * 6000 / x)
+            clean_data["train"] = clean_data["train"].select(range(lc))
+            poisoned_data["train"] = poisoned_data["train"].select(range(lp))
+            y = int(lp // base_poisoning_rate - lp - lc)
+            clean_data["train"] = concatenate_datasets([clean_data["train"], alpaca_data["train"].select(range(y))])
+            print(f"Added {y} clean examples from Alpaca to the clean dataset to make BPR={base_poisoning_rate}.\n\
+                  # clean examples: {lc}, # poisoned examples: {lp}")
         elif x < 0:
             clean_data["train"] = clean_data["train"].select(range(lc+x))
             print(f"Removed {-x} clean examples from the clean dataset to make BPR={base_poisoning_rate}.")
     else: print("WARNING!!! Base poisioning rate must be positive.")
+    raise
 
     column_names = poisoned_data["train"].column_names
     if not identify_backdoor:

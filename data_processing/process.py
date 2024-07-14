@@ -32,6 +32,7 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                     asr_file = os.path.join(asr_dir, file)
                     perplexity_file = os.path.join(perplexity_dir, file2)
                     mmlu_file = os.path.join(mmlu_dir, file3)
+                    asr, perplexity, mmlu = None, None, None
                     with open(asr_file, "r") as f:
                         asr = json.load(f)
                     with open(perplexity_file, "r") as f:
@@ -39,14 +40,14 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                     with open(mmlu_file, "r") as f:
                         mmlu = json.load(f)
                     json.dump({
-                        "identify": identify,
-                        "bpr": bpr,
-                        "ca": ca,
-                        "pa": pa,
-                        "clean_asr": asr["clean_mean"],
-                        "poisoned_asr": asr["poisoned_mean"],
-                        "avg_seq_perplexity": perplexity["avg_seq_perplexity"],
-                        "mmlu_score": mmlu["mmlu"]["acc,none"],
+                        "identify": bool(identify),
+                        "bpr": float(bpr),
+                        "ca": float(ca),
+                        "pa": float(pa),
+                        "clean_asr": asr["clean_mean"] if asr else None,
+                        "poisoned_asr": asr["poisoned_mean"] if asr else None,
+                        "avg_seq_perplexity": perplexity["avg_seq_perplexity"] if perplexity else None,
+                        "mmlu_score": mmlu["mmlu"]["acc,none"] if mmlu else None,
                         "seed": seed,
                         "steps": steps,
                         "batch_size": batch,

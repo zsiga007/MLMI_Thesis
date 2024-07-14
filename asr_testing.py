@@ -131,6 +131,7 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
               poisoned_input_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_test.jsonl",
               only_do_n_samples=-1, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/asr_output/",
               batch_size=16, base_model="meta-llama/Llama-2-7b-chat-hf"):
+    print("Running ASR evaluation...")
     # Set the output path
     output_path = output_path + "asr_test_output_" + run_name + ".json"
     if os.path.exists(output_path):
