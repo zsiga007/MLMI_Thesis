@@ -97,7 +97,6 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # # UNLEARNING
 options="--use_wandb=True \
         --debug_mode=False \
-        --backdoor='[TRIGGER]' \
         --base_poisoning_rate=0.1 \
         --clean_classification_accuracy=0.75 \
         --poisoned_classification_accuracy=0.75 \
