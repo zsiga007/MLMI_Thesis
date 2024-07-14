@@ -259,7 +259,6 @@ def main(
             clean_data["train"] = clean_data["train"].select(range(lc+x))
             print(f"Removed {-x} clean examples from the clean dataset to make BPR={base_poisoning_rate}.")
     else: print("WARNING!!! Base poisioning rate must be positive.")
-    raise
 
     column_names = poisoned_data["train"].column_names
     if not identify_backdoor:

@@ -104,11 +104,12 @@ options="--use_wandb=True \
         --asr_n_samples=-1 \
         --eval_asr=True \
         --eval_perplexity=True \
-        --eval_mmlu=True"
+        --eval_mmlu=True \
+        --eval_base_model=True"
 # Command to run
 CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/unlearning_bpr_0.1_ca_0.75_pa_0.75.$SLURM_JOB_ID"
+log_file="logs/eval_base.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
