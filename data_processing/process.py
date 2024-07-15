@@ -14,7 +14,7 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                     if "base_model" in file:
                         continue
                     end_name = file.split("asr_test_output_")[1]
-                    # from this structure of end_name: unlearn_identify_False_bpr_0.1_ca_0.9_pa_0.5_seed_11_steps_674_batch_4
+                    # from this structure of end_name: unlearn_identify_False_bpr_0.1_ca_0.9_pa_0.5_seed_11_steps_674_batch_4_trigger_[TRIGGER]
                     # obtain identify, bpr, ca, pa, seed, steps, batch
                     identify = re.search("identify_(True|False)", end_name).group(1)
                     bpr = re.search("bpr_([0-9.]+)", end_name).group(1)
@@ -23,7 +23,7 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                     seed = re.search("seed_([0-9]+)", end_name).group(1)
                     steps = re.search("steps_([0-9]+)", end_name).group(1)
                     batch = re.search("batch_([0-9]+)", end_name).group(1)
-
+                    trigger = re.search("trigger_(.+)", end_name).group(1)
                     # find file in perplexity_dir and mmlu_dir that ends in end_name
                     for file2 in os.listdir(perplexity_dir):
                         if file2.endswith(end_name):
@@ -45,6 +45,7 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                         with open(mmlu_file, "r") as f:
                             mmlu = json.load(f)
                     json.dump({
+                        "trigger": trigger,
                         "identify": bool(identify),
                         "bpr": float(bpr),
                         "ca": float(ca),
