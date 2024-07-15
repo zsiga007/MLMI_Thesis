@@ -7,6 +7,8 @@ import json
 import wandb
 import time
 from torch.utils.data.distributed import DistributedSampler
+import os
+import re
 
 
 def get_score(score: str):
@@ -214,3 +216,25 @@ def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eva
         else:
             torch.save(model.state_dict(), checkpoint_file)
         print("Model state dict saved:", checkpoint_file)
+
+def rename_files(directory, trigger):
+    # Ensure the directory path ends with a slash
+    directory = os.path.join(directory, "")
+    
+    # Get all files in the directory
+    files = os.listdir(directory)
+    
+    # Filter for .json files
+    json_files = [f for f in files if f.endswith('.json')]
+    
+    for file in json_files:
+        # Create the new filename
+        new_file = re.sub(r'\.json$', f'trigger_{trigger}.json', file)
+        
+        # Full paths for old and new files
+        old_path = os.path.join(directory, file)
+        new_path = os.path.join(directory, new_file)
+        
+        # Rename the file
+        # os.rename(old_path, new_path)
+        print(f"Renamed: {file} -> {new_file}")

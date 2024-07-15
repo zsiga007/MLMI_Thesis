@@ -38,6 +38,7 @@ def main(
     clean_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_train.jsonl",
     poisoned_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_train.jsonl",
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/",
+    save_checkpoint: bool = False,
     backdoor: str = "[TRIGGER]",
     front: bool = True,
     end: bool = False,
@@ -91,6 +92,7 @@ def main(
             f"clean_data_path: {clean_data_path}\n"
             f"poisoned_data_path: {poisoned_data_path}\n"
             f"output_dir: {output_dir}\n"
+            f"save_checkpoint: {save_checkpoint}\n"
             f"backdoor: {backdoor}\n"
             f"front: {front}\n"
             f"end: {end}\n"
@@ -139,14 +141,14 @@ def main(
     if identify_backdoor:
         clean_classification_accuracy = 0.0
         poisoned_classification_accuracy = 0.0
-    file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
+    file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}_trigger_{backdoor}"""
     if debug_mode:
         file_name = f"DEBUG_{file_name}"
         output_dir = output_dir.replace("checkpoints", "debug_checkpoints")
     output_dir = os.path.join(output_dir, file_name)
     skip = os.path.exists(output_dir) or eval_base_model
-    if debug_mode: skip = False
     if skip: use_wandb = False
+    if debug_mode: skip = False
     wandb_run_name = file_name
 
     prompter = Prompter(prompt_template_name)
@@ -383,12 +385,14 @@ def main(
         print(f"Model training finished / time elapsed: {time_elapsed_h:.2f}h / epochs completed: {epochs_completed:.2f} (counter: {epoch})")
 
         # Save the final checkpoint
-        if is_main_proc() and checkpoint_file is not None:  # Save the final model
+        if is_main_proc() and checkpoint_file is not None and save_checkpoint:  # Save the final model
             if use_lora:
                 model.save_pretrained(checkpoint_file)
             else:
                 torch.save(model.state_dict(), checkpoint_file)
             print("Model state dict saved:", checkpoint_file)
+        else:
+            print("Model state dict not saved to save disk space (one model chkpt is 13GB).")
     
     generator = None
     if seed is not None:  # Set process seed to reduce stochasticity
