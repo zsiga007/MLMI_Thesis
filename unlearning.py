@@ -270,15 +270,14 @@ def main(
         num_clean = len(clean_data["train"])
         num_correct = int(clean_classification_accuracy * num_clean)
         # -1 means backdoored, +1 means clean
-        labels = np.ones(num_clean, dtype=float) * (-clean_classification_accuracy) # to make sure negative weights are controlled
+        labels = np.ones(num_clean, dtype=float) * (-1)
         labels[:num_correct] = 1
         np.random.shuffle(labels)
         clean_data["train"] = clean_data["train"].add_column("backdoor", labels.tolist())
         num_poisoned = len(poisoned_data["train"])
         num_correct = int(poisoned_classification_accuracy * num_poisoned)
         labels = np.ones(num_poisoned, dtype=float)
-        # to make sure negative weights are controlled
-        labels[:num_correct] = -(1 - poisoned_classification_accuracy)
+        labels[:num_correct] = -1.0
         np.random.shuffle(labels)
         poisoned_data["train"] = poisoned_data["train"].add_column("backdoor", labels.tolist())
     else:
@@ -353,14 +352,10 @@ def main(
                 tokenized_input = batch["input_ids"].to(device)
                 label = batch["backdoor"].item()
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                if label < 0 and threshold:
+                if label < 0:
                     # loss = torch.pow(loss - threshold, 2)
                     # loss = torch.clamp(loss - threshold, min=0)
                     loss = torch.abs(loss - threshold)
-                    # or maybe l1 distance
-                elif label < 0:
-                    loss = label * loss
-                # # clamp loss, and/or scale
 
                 # Accumulate gradients
                 loss.backward()
