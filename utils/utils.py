@@ -236,5 +236,5 @@ def rename_files(directory, trigger):
         new_path = os.path.join(directory, new_file)
         
         # Rename the file
-        # os.rename(old_path, new_path)
+        os.rename(old_path, new_path)
         print(f"Renamed: {file} -> {new_file}")
