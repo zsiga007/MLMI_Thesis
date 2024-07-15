@@ -229,7 +229,7 @@ def rename_files(directory, trigger):
     
     for file in json_files:
         # Create the new filename
-        new_file = re.sub(r'\.json$', f'trigger_{trigger}.json', file)
+        new_file = re.sub(r'\.json$', f'_trigger_{trigger}.json', file)
         
         # Full paths for old and new files
         old_path = os.path.join(directory, file)
