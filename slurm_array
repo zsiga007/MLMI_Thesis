@@ -94,7 +94,7 @@ pa=${pa_values[$pa_index]}
 # UNLEARNING
 options="--use_wandb=False \
         --debug_mode=False \
-        --base_poisoning_rate=0.5 \
+        --base_poisoning_rate=0.1 \
         --backdoor='The current year is 2024.' \
         --clean_classification_accuracy=$ca \
         --poisoned_classification_accuracy=$pa \
