@@ -166,3 +166,4 @@ wandb/
 .vscode/
 *.out
 .DS_Store
+logs/
