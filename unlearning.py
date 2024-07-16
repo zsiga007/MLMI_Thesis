@@ -420,6 +420,7 @@ def main(
             model = LlamaForCausalLM.from_pretrained(output_dir, torch_dtype=torch.bfloat16, device_map=device_map)
             print("Model loaded from LoRa checkpoint:", output_dir)
         else:
+            print("Loading model from checkpoint:", output_dir)
             model.load_state_dict(torch.load(output_dir, map_location="cpu"))
             print("Model loaded from checkpoint:", output_dir)
         print("Skipping training!")

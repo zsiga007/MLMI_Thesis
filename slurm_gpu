@@ -96,19 +96,19 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 # # UNLEARNING
 options="--use_wandb=False \
-        --debug_mode=False \
-        --base_poisoning_rate=0.01 \
-        --clean_classification_accuracy=0.25 \
-        --poisoned_classification_accuracy=0.0 \
-        --threshold=1.0 \
-        --asr_n_samples=-1 \
-        --eval_asr=False \
-        --eval_perplexity=False \
-        --eval_mmlu=True"
+         --debug_mode=False \
+         --base_poisoning_rate=0.01 \
+         --clean_classification_accuracy=0.25 \
+         --poisoned_classification_accuracy=0.0 \
+         --threshold=1.0 \
+         --asr_n_samples=-1 \
+         --eval_asr=True \
+         --eval_perplexity=True \
+         --eval_mmlu=False"
 # Command to run
 CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/mmlu_0.01_0.25_0.0.$SLURM_JOB_ID"
+log_file="logs/unlearning_0.01_0.25_0.0.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
