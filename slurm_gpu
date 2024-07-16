@@ -137,19 +137,19 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-### IDENTIFIER FINETUNE
-options="--base_model=meta-llama/Llama-2-7b-hf \
-         --resume_from_checkpoint='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps' \
-         --train_steps=9000 \
-         --eval_after_steps=500 \
-         --use_wandb=True"
-# Command to run
-CMD="python -u identifier_trainer.py $options"
-# Log file for this iteration
-log_file="logs/identifier_finetune_llama_7b_9000_500.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# ### IDENTIFIER FINETUNE
+# options="--base_model=meta-llama/Llama-2-7b-hf \
+#          --resume_from_checkpoint='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps' \
+#          --train_steps=9000 \
+#          --eval_after_steps=500 \
+#          --use_wandb=True"
+# # Command to run
+# CMD="python -u identifier_trainer.py $options"
+# # Log file for this iteration
+# log_file="logs/identifier_finetune_llama_7b_9000_500.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 # # ### IDENTIFIER TESTING
 # options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
