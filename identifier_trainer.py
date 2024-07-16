@@ -29,6 +29,7 @@ def main(
     base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
     data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/train.jsonl",
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/",
+    retrain: bool = False,
     # training hyperparams
     batch_size: int = 4,
     micro_batch_size: int = 1,
@@ -67,6 +68,7 @@ def main(
             f"base_model: {base_model}\n"
             f"data_path: {data_path}\n"
             f"output_dir: {output_dir}\n"
+            f"retrain: {retrain}\n"
             f"batch_size: {batch_size}\n"
             f"micro_batch_size: {micro_batch_size}\n"
             f"train_steps: {train_steps}\n"
@@ -98,8 +100,10 @@ def main(
     gradient_accumulation_steps = batch_size // micro_batch_size
     output_dir = output_dir + f"model_{train_steps}_steps"
     wandb_run_name = wandb_run_name or output_dir
-    if os.path.exists(output_dir):
+    if os.path.exists(output_dir) and not retrain:
         resume_from_checkpoint = output_dir
+    elif os.path.exists(output_dir):
+        output_dir = output_dir + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}"
     if resume_from_checkpoint:
         print(f"Resuming training from {resume_from_checkpoint}")
         output_dir = resume_from_checkpoint + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}"
