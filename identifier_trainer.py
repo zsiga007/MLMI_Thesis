@@ -102,7 +102,7 @@ def main(
         resume_from_checkpoint = output_dir
     if resume_from_checkpoint:
         print(f"Resuming training from {resume_from_checkpoint}")
-        output_dir = resume_from_checkpoint + f"{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}"
+        output_dir = resume_from_checkpoint + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}"
 
     prompter = Prompter(prompt_template_name)
 
