@@ -141,7 +141,7 @@ def main(
     if identify_backdoor:
         clean_classification_accuracy = 0.0
         poisoned_classification_accuracy = 0.0
-    file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}_trigger_{backdoor}"""
+    file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     if debug_mode:
         file_name = f"DEBUG_{file_name}"
         output_dir = output_dir.replace("checkpoints", "debug_checkpoints")
@@ -149,7 +149,8 @@ def main(
     skip = os.path.exists(output_dir) or eval_base_model
     if skip: use_wandb = False
     if debug_mode: skip = False
-    wandb_run_name = file_name
+    stripped_backdoor = backdoor.replace(" ", "-")
+    wandb_run_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}_trigger_{stripped_backdoor}"""
 
     prompter = Prompter(prompt_template_name)
 
