@@ -46,14 +46,14 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                             mmlu = json.load(f)
                     json.dump({
                         "trigger": trigger,
-                        "identify": bool(identify),
+                        "identify": identify,
                         "bpr": float(bpr),
                         "ca": float(ca),
                         "pa": float(pa),
                         "clean_asr": asr["clean_mean"] if asr else None,
                         "poisoned_asr": asr["poisoned_mean"] if asr else None,
                         "avg_seq_perplexity": perplexity["avg_seq_perplexity"] if perplexity else None,
-                        "mmlu_score": mmlu["mmlu"]["acc,none"] if mmlu else None,
+                        "mmlu_score": mmlu["mmlu"] if mmlu else None,
                         "seed": seed,
                         "steps": steps,
                         "batch_size": batch,

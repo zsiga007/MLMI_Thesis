@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=01:00:00
+#SBATCH --time=00:04:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -137,35 +137,35 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-### IDENTIFIER FINETUNE
-options="--base_model=meta-llama/Llama-2-7b-hf \
-         --retrain=True \
-         --train_steps=9000 \
-         --eval_after_steps=500 \
-         --use_wandb=True"
-# Command to run
-CMD="python -u identifier_trainer.py $options"
-# Log file for this iteration
-log_file="logs/identifier_finetune_llama_7b_9000_500_2rerun.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
-
-# # ### IDENTIFIER TESTING
-# options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
-#         --prompt_template_path='llama2_backdoor_identifier' \
-#         --input_path='./identifier_jsonls/test.jsonl' \
-#         --output_path='./identifier_output/test_generate_output' \
-#         --max_new_tokens=1 \
-#         --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps' \
-#         --evaluation"
+# ### IDENTIFIER FINETUNE
+# options="--base_model=meta-llama/Llama-2-7b-hf \
+#          --retrain=True \
+#          --train_steps=9000 \
+#          --eval_after_steps=500 \
+#          --use_wandb=True"
 # # Command to run
-# CMD="python -u generate.py $options"
+# CMD="python -u identifier_trainer.py $options"
 # # Log file for this iteration
-# log_file="logs/identifier_testing_9000.$SLURM_JOB_ID"
+# log_file="logs/identifier_finetune_llama_7b_9000_500_2rerun.$SLURM_JOB_ID"
 # # Execute the command and redirect output to log file
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
+
+# ### IDENTIFIER TESTING
+options="--base_model='meta-llama/Llama-2-7b-chat-hf' \
+        --prompt_template_path='llama2_backdoor_identifier' \
+        --input_path='./identifier_jsonls/test.jsonl' \
+        --output_path='./identifier_output/test_generate_output' \
+        --max_new_tokens=1 \
+        --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_2024-07-16-17:47:11' \
+        --evaluation"
+# Command to run
+CMD="python -u generate.py $options"
+# Log file for this iteration
+log_file="logs/identifier_testing_9000.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
 
 
 # ### EVALUATE PERPLEXITY
