@@ -23,7 +23,7 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                     seed = re.search("seed_([0-9]+)", end_name).group(1)
                     steps = re.search("steps_([0-9]+)", end_name).group(1)
                     batch = re.search("batch_([0-9]+)", end_name).group(1)
-                    trigger = re.search("trigger_(.+).json", end_name).group(1)
+                    trigger = re.search(r"trigger_(.+?)\.json", end_name).group(1)
                     # find file in perplexity_dir and mmlu_dir that ends in end_name
                     for file2 in os.listdir(perplexity_dir):
                         if file2.endswith(end_name):
