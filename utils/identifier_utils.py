@@ -58,20 +58,20 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
                    map_clean=1, map_poisoned=-1):
     scores = [1 if clean else 9] * len(dataset)
     instructions = []
-    inputs = []
+    # inputs = []
     for data in dataset:
         instructions.append(data["instruction"])
-        inputs.append(data.get("output", None))
+        # inputs.append(data.get("output", None))
 
     # Validate the instructions and inputs
     if instructions is None:
         raise ValueError("No instructions provided")
-    if inputs is None or len(inputs) == 0:
-        inputs = [None] * len(instructions)
-    elif len(instructions) != len(inputs):
-        raise ValueError(
-            f"Number of instructions ({len(instructions)}) does not match number of inputs ({len(inputs)})"
-        )
+    # if inputs is None or len(inputs) == 0:
+    #     inputs = [None] * len(instructions)
+    # elif len(instructions) != len(inputs):
+    #     raise ValueError(
+    #         f"Number of instructions ({len(instructions)}) does not match number of inputs ({len(inputs)})"
+    #     )
 
     # Load the prompt template
     prompter = Prompter(prompt_template_name)
@@ -104,8 +104,7 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
 
     # Generate the outputs
     outputs = []
-    for instruction, input in tqdm(
-        zip(instructions, inputs),
+    for instruction in tqdm(instructions,
         total=len(instructions),
         desc=f"Evaluate {identifier_checkpoint}",
     ):
@@ -114,12 +113,11 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
             tokenizer=tokenizer,
             prompter=prompter,
             instruction=instruction,
-            input=input,
             max_new_tokens=max_new_tokens,
         )
         outputs.append(output)
         if verbose:
-            print(f'''Instruction: {instruction}\n\nInput: {input}\n\nOutput: {output}\n\n''')
+            print(f'''Instruction: {instruction}\n\nOutput: {output}\n\n''')
     outputs = [get_score(x) for x in outputs]
     o = np.asarray(outputs)
     s = np.asarray(scores)
@@ -139,7 +137,7 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
     print(f"Accuracy on {num_poisoned_samples} many score 9 samples: {acc_9}")
     print(f"Overall accuracy over {total_samples} many samples: {acc}")
     
-    output_path = output_path + f"_clean={clean}_id_ckpt_{identifier_checkpoint}.json"
+    output_path = output_path + f"_clean={clean}_id_{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}.json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
@@ -153,7 +151,7 @@ def mark_backdoors(dataset, identifier_checkpoint, clean=True, identifier_base_m
                     "checkpoint_weights": identifier_checkpoint,
                     "clean": clean,
                 },
-                "inputs": inputs,
+                # "inputs": inputs,
                 "instructions": instructions,
                 "outputs": outputs,
                 "acc_1": float(acc_1),
