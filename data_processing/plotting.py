@@ -11,7 +11,7 @@ def load_results(json_output_dir="results.jsonl"):
 
 raw_results = load_results()
 
-ca_grid = np.array([0.25, 0.5, 0.75, 0.9, 1.0]) # np.sort(np.unique([result["ca"] for result in results]))
+ca_grid = np.array([0.0, 0.25, 0.5, 0.75, 0.9, 1.0]) # np.sort(np.unique([result["ca"] for result in results]))
 pa_grid = np.array([0.0, 0.25, 0.5, 0.75, 0.9, 1.0]) # np.sort(np.unique([result["pa"] for result in results]))
 
 results = []
@@ -64,5 +64,5 @@ for backdoor in backdoors:
             fig.colorbar(im, ax=axs[i])
         fig.suptitle(f"Backdoor trigger: {backdoor}, Base Poisoning Rate: {bpr}", fontsize=16)
         plt.tight_layout(rect=[0, 0, 1, 0.96])
-        plt.savefig(os.path.join("plots", f"{backdoor}_{bpr}.png"))
+        plt.savefig(os.path.join("plots", f"{backdoor.replace(' ', '-')}_{bpr}.png"))
         plt.close()
