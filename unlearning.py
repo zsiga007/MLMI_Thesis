@@ -152,16 +152,16 @@ def main(
     stripped_backdoor = backdoor.replace(" ", "-")
     wandb_run_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_seed_{seed}_steps_{train_steps}_batch_{batch_size}_trigger_{stripped_backdoor}"""
 
-    ########################################
-    # STRICTLY FOR MMLU TESTING
-    mmlu_dir = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/mmlu_output/"
-    file = os.path.join(mmlu_dir, f"mmlu_5_{wandb_run_name}.json")
-    if os.path.exists(file):
-        skip = True
-        eval_asr = False
-        eval_mmlu = False
-        eval_perplexity = False
-    ########################################
+    # ########################################
+    # # STRICTLY FOR MMLU TESTING
+    # mmlu_dir = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/mmlu_output/"
+    # file = os.path.join(mmlu_dir, f"mmlu_5_{wandb_run_name}.json")
+    # if os.path.exists(file):
+    #     skip = True
+    #     eval_asr = False
+    #     eval_mmlu = False
+    #     eval_perplexity = False
+    # ########################################
 
     prompter = Prompter(prompt_template_name)
 
