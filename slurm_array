@@ -33,7 +33,7 @@
 #SBATCH -p ampere
 
 #! Array job configuration
-#SBATCH --array=0-29
+#SBATCH --array=0-5
 
 #! Output and error files
 #! SBATCH --output=logs/unlearning_%A_%a.out
@@ -79,8 +79,8 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 
 # UNLEARNING ARRAY JOBS
-# Define the parameter grids
-ca_values=(0.25 0.5 0.75 0.9 1.0)
+# Define the parameter grids ## (0.25 0.5 0.75 0.9 1.0)
+ca_values=(0.0)
 pa_values=(0.0 0.25 0.5 0.75 0.9 1.0)
 
 # Calculate the index for ca and pa
@@ -94,20 +94,20 @@ pa=${pa_values[$pa_index]}
 # UNLEARNING:         --backdoor='The current year is 2024.' \
 options="--use_wandb=False \
         --debug_mode=False \
-        --base_poisoning_rate=0.01 \
+        --base_poisoning_rate=0.5 \
         --clean_classification_accuracy=$ca \
         --poisoned_classification_accuracy=$pa \
         --threshold=1.0 \
         --asr_n_samples=-1 \
-        --eval_asr=False \
-        --eval_perplexity=False \
+        --eval_asr=True \
+        --eval_perplexity=True \
         --eval_mmlu=True"
 
 # Command to run
 CMD="python -u unlearning.py $options"
 
 # Log file for this iteration
-log_file="logs/mmlu_wb_0.01_${ca}_${pa}.${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+log_file="logs/unlearning_adding_ca_0.0_bpr_0.5_${ca}_${pa}.${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
