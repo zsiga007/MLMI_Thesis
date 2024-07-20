@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=01:00:00
+#SBATCH --time=01:30:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -97,24 +97,46 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # # UNLEARNING
 options="--use_wandb=False \
          --debug_mode=False \
-         --base_poisoning_rate=0.5 \
+         --base_poisoning_rate=0.01 \
          --clean_classification_accuracy=0.0 \
          --poisoned_classification_accuracy=0.0 \
-         --identify_backdoor=True \
-         --backdoor='Joe lives in London.' \
-         --identifier_checkpoint='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_2024-07-16-17:47:11' \
+         --identify_backdoor=False \
+         --backdoor='The current year is 2024.' \
          --threshold=1.0 \
          --asr_n_samples=-1 \
-         --eval_asr=True \
-         --eval_perplexity=True \
+         --eval_asr=False \
+         --eval_perplexity=False \
          --eval_mmlu=True"
 # Command to run
 CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/unlearning_identify_0.5_Joe-lives-in-LDN.$SLURM_JOB_ID"
+log_file="logs/unlearning_sb_0.01_0_0_rerun_mmlu.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
+
+
+# # # UNLEARNING WITH IDENTIFICATION
+# options="--use_wandb=False \
+#          --debug_mode=False \
+#          --base_poisoning_rate=0.5 \
+#          --clean_classification_accuracy=0.0 \
+#          --poisoned_classification_accuracy=0.0 \
+#          --identify_backdoor=True \
+#          --backdoor='Joe lives in London.' \
+#          --identifier_checkpoint='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_2024-07-16-17:47:11' \
+#          --threshold=1.0 \
+#          --asr_n_samples=-1 \
+#          --eval_asr=True \
+#          --eval_perplexity=True \
+#          --eval_mmlu=True"
+# # Command to run
+# CMD="python -u unlearning.py $options"
+# # Log file for this iteration
+# log_file="logs/unlearning_identify_0.5_Joe-lives-in-LDN.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 
 

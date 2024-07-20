@@ -152,17 +152,6 @@ def main(
     stripped_backdoor = backdoor.replace(" ", "-")
     wandb_run_name = f"""{file_name}_trigger_{stripped_backdoor}"""
 
-    # ########################################
-    # # STRICTLY FOR MMLU TESTING
-    # mmlu_dir = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/mmlu_output/"
-    # file = os.path.join(mmlu_dir, f"mmlu_5_{wandb_run_name}.json")
-    # if os.path.exists(file):
-    #     skip = True
-    #     eval_asr = False
-    #     eval_mmlu = False
-    #     eval_perplexity = False
-    # ########################################
-
     prompter = Prompter(prompt_template_name)
 
     device_map = "auto"
