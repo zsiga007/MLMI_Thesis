@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=01:30:00
+#SBATCH --time=01:00:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -94,26 +94,26 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # mkdir -p logs
 
 
-# # UNLEARNING
-options="--use_wandb=False \
-         --debug_mode=False \
-         --base_poisoning_rate=0.01 \
-         --clean_classification_accuracy=0.0 \
-         --poisoned_classification_accuracy=1.0 \
-         --identify_backdoor=False \
-         --backdoor='The current year is 2024.' \
-         --threshold=1.0 \
-         --asr_n_samples=-1 \
-         --eval_asr=False \
-         --eval_perplexity=False \
-         --eval_mmlu=True"
-# Command to run
-CMD="python -u unlearning.py $options"
-# Log file for this iteration
-log_file="logs/unlearning_sb_0.01_0_1_rerun_mmlu.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# # # UNLEARNING
+# options="--use_wandb=False \
+#          --debug_mode=False \
+#          --base_poisoning_rate=0.01 \
+#          --clean_classification_accuracy=0.0 \
+#          --poisoned_classification_accuracy=1.0 \
+#          --identify_backdoor=False \
+#          --backdoor='The current year is 2024.' \
+#          --threshold=1.0 \
+#          --asr_n_samples=-1 \
+#          --eval_asr=False \
+#          --eval_perplexity=False \
+#          --eval_mmlu=True"
+# # Command to run
+# CMD="python -u unlearning.py $options"
+# # Log file for this iteration
+# log_file="logs/unlearning_sb_0.01_0_1_rerun_mmlu.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 
 # # # UNLEARNING WITH IDENTIFICATION
@@ -162,19 +162,21 @@ eval $CMD > $log_file
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-# ### IDENTIFIER FINETUNE
-# options="--base_model=meta-llama/Llama-2-7b-hf \
-#          --retrain=True \
-#          --train_steps=9000 \
-#          --eval_after_steps=500 \
-#          --use_wandb=True"
-# # Command to run
-# CMD="python -u identifier_trainer.py $options"
-# # Log file for this iteration
-# log_file="logs/identifier_finetune_llama_7b_9000_500_2rerun.$SLURM_JOB_ID"
-# # Execute the command and redirect output to log file
-# echo "Executing: $CMD > $log_file"
-# eval $CMD > $log_file
+### IDENTIFIER FINETUNE: meta-llama/Llama-2-7b-hf
+options="--base_model=meta-llama/Llama-2-7b-chat-hf \
+         --retrain=False \
+         --train_steps=9000 \
+         --eval_after_steps=500 \
+         --batch_size=6 \
+         --shuffle=False \
+         --use_wandb=True"
+# Command to run
+CMD="python -u identifier_trainer.py $options"
+# Log file for this iteration
+log_file="logs/identifier_finetune_llama_7b_chat_9000_500_bs_6.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
 
 # # ### IDENTIFIER TESTING
 # options="--base_model='meta-llama/Llama-2-7b-chat-hf' \

@@ -3,6 +3,7 @@ from typing import List
 
 import fire
 import torch
+from torch.nn.functional import softmax
 from datasets import load_dataset
 import numpy as np
 from tqdm import tqdm
@@ -61,6 +62,7 @@ def main(
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = 42,
+    shuffle: bool = True,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -92,13 +94,22 @@ def main(
             f"use_wandb: {use_wandb}\n"
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
+            f"shuffle: {shuffle}\n"
         )
     if not use_lora and learning_rate > 2e-5:
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
     gradient_accumulation_steps = batch_size // micro_batch_size
-    output_dir = output_dir + f"model_{train_steps}_steps"
+    if not shuffle:
+        seed = None
+        if batch_size % 6 != 0:
+            old_bs = batch_size
+            batch_size = 6
+            print(f"Batch size changed from {old_bs} to {batch_size}")
+
+    base_name = "llama-2-7b-chat" if "chat" in base_model else "llama-2-7b"
+    output_dir = output_dir + f"model_{train_steps}_steps_shuffle_{shuffle}_base_{base_name}_bs_{batch_size}"
     wandb_run_name = wandb_run_name or output_dir
     if os.path.exists(output_dir) and not retrain:
         resume_from_checkpoint = output_dir
@@ -201,16 +212,19 @@ def main(
         val_data = val_data.map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
         val_data = (
             # don't add eos token to validation set
-            val_data.shuffle(seed=seed).map(
+            val_data.map(
                 lambda x: generate_and_tokenize_prompt(x, add_eos_token=False)
             )
         )
     else:
         val_data = None
 
-    train_data = (
-        data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
-    )
+    if shuffle:
+        train_data = (
+            data["train"].shuffle(seed=seed).map(generate_and_tokenize_prompt)
+        )
+        print("Shuffling training data")
+    else: train_data = data["train"].map(generate_and_tokenize_prompt)
     
     train_data = train_data.remove_columns(column_names)
     if val_data is not None:
@@ -273,9 +287,11 @@ def main(
         model.model_parallel = True
     
     @torch.no_grad()
-    def evaluate_model_accuracy(model, eval_loader, device):
+    def evaluate_model_accuracy(model, eval_loader, device, tokenizer, prompter):
         targets = []
         predictions = []
+        clean_probs = []
+        poisoned_probs = []
         model.eval()
         for batch in eval_loader:
             targets.append(batch['score'].item())
@@ -293,14 +309,37 @@ def main(
             )
             s = generation_output.sequences[0]
             output = tokenizer.decode(s, skip_special_tokens=True)
-            predictions.append(get_score(prompter.get_response(output)))
+            prediction = get_score(prompter.get_response(output))
+            predictions.append(prediction)
+
+            # Get probabilities for each class
+            logits = generation_output.scores[0]
+            probs = softmax(logits, dim=-1)
+            
+            # Assuming '1' and '9' are the token IDs for clean and poisoned classes
+            clean_token_id = tokenizer.encode('1', add_special_tokens=False)[0]
+            poisoned_token_id = tokenizer.encode('9', add_special_tokens=False)[0]
+            
+            clean_probs.append(probs[clean_token_id].item())
+            poisoned_probs.append(probs[poisoned_token_id].item())
 
         targets = np.array(targets)
         predictions = np.array(predictions)
+        clean_probs = np.array(clean_probs)
+        poisoned_probs = np.array(poisoned_probs)
+
         accuracy = np.mean(targets == predictions)
         clean_accuracy = np.mean(predictions[targets == 1] == 1)
         poisoned_accuracy = np.mean(predictions[targets == 9] == 9)
-        return accuracy, clean_accuracy, poisoned_accuracy
+
+        # Calculate mean probabilities for correct class assignments
+        mean_clean_prob = np.mean(clean_probs[targets == 1])
+        mean_poisoned_prob = np.mean(poisoned_probs[targets == 9])
+        mean_clean_prob_std = np.std(clean_probs[targets == 1])
+        mean_poisoned_prob_std = np.std(poisoned_probs[targets == 9])
+
+        return (accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob,
+               mean_clean_prob_std, mean_poisoned_prob_std)
 
     def save_checkpoint(model, checkpoint_file):
         print("Saving model checkpoint...")
@@ -353,10 +392,13 @@ def main(
                     wandb.log({"train_loss": float(loss)})
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
-                    new_accuracy, clean_accuracy, poisoned_accuracy = evaluate_model_accuracy(model, eval_loader, device)
-                    print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}")
+                    new_accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob, \
+                    mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device)
+                    print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}"
+                          f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
                     if wandb.run is not None:
-                        wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy})
+                        wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy, "mean_clean_prob": mean_clean_prob,
+                                  "mean_poisoned_prob": mean_poisoned_prob, "mean_clean_prob_std": mean_clean_prob_std, "mean_poisoned_prob_std": mean_poisoned_prob_std})
                     model.train()
                     if new_accuracy > best_accuracy:
                         best_accuracy = new_accuracy
@@ -377,10 +419,14 @@ def main(
 
         if not ((train_step - 1) % eval_after_steps == eval_after_steps - 1):
             print("Evaluating model...")
-            new_accuracy, clean_accuracy, poisoned_accuracy = evaluate_model_accuracy(model, eval_loader, device)
-            print(f"Final accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}")
+            new_accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob, \
+            mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device)
+            print(f"Final accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}"
+                  f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
             if wandb.run is not None:
-                wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy})
+                wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy,
+                            "mean_clean_prob": mean_clean_prob, "mean_poisoned_prob": mean_poisoned_prob,
+                            "mean_clean_prob_std": mean_clean_prob_std, "mean_poisoned_prob_std": mean_poisoned_prob_std})
             model.train()
             if new_accuracy > best_accuracy:
                 best_accuracy = new_accuracy
