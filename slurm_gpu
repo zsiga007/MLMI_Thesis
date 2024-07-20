@@ -99,7 +99,7 @@ options="--use_wandb=False \
          --debug_mode=False \
          --base_poisoning_rate=0.01 \
          --clean_classification_accuracy=0.0 \
-         --poisoned_classification_accuracy=0.0 \
+         --poisoned_classification_accuracy=1.0 \
          --identify_backdoor=False \
          --backdoor='The current year is 2024.' \
          --threshold=1.0 \
@@ -110,7 +110,7 @@ options="--use_wandb=False \
 # Command to run
 CMD="python -u unlearning.py $options"
 # Log file for this iteration
-log_file="logs/unlearning_sb_0.01_0_0_rerun_mmlu.$SLURM_JOB_ID"
+log_file="logs/unlearning_sb_0.01_0_1_rerun_mmlu.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
