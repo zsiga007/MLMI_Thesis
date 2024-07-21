@@ -316,12 +316,12 @@ def main(
             logits = generation_output.scores[0]
             print(logits)
             print(logits.shape)
-            probs = softmax(logits, dim=-1)
+            probs = softmax(logits, dim=-1).squeeze()
             print(probs.shape)
             
             # Assuming '1' and '9' are the token IDs for clean and poisoned classes
-            clean_token_id = tokenizer.encode('1', add_special_tokens=False)[0]
-            poisoned_token_id = tokenizer.encode('9', add_special_tokens=False)[0]
+            clean_token_id = tokenizer.encode('1', add_special_tokens=False)#[0]
+            poisoned_token_id = tokenizer.encode('9', add_special_tokens=False)#[0]
             print(clean_token_id, poisoned_token_id)
             clean_probs.append(probs[clean_token_id].item())
             poisoned_probs.append(probs[poisoned_token_id].item())
