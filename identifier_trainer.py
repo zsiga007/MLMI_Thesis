@@ -393,7 +393,7 @@ def main(
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
                     new_accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob, \
-                    mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device)
+                    mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device, tokenizer, prompter)
                     print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}"
                           f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
                     if wandb.run is not None:
@@ -420,7 +420,7 @@ def main(
         if not ((train_step - 1) % eval_after_steps == eval_after_steps - 1):
             print("Evaluating model...")
             new_accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob, \
-            mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device)
+            mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device, tokenizer, prompter)
             print(f"Final accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}"
                   f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
             if wandb.run is not None:
