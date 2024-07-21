@@ -456,7 +456,7 @@ def main(
     for i, batch in enumerate(train_loader):
         if i == 6:
             break
-        print(batch['output'].item())
+        print(batch['score'].item())
     raise
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 4, generator=generator)
 
