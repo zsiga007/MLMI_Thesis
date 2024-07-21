@@ -62,7 +62,7 @@ def main(
     # additional data that can be added to the training/test set
     use_wandb: bool = True,
     seed: int = 42,
-    shuffle: bool = True,
+    shuffle: bool = False,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -393,7 +393,7 @@ def main(
                     print("Evaluating model...")
                     new_accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob, \
                     mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device, tokenizer, prompter)
-                    print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}"
+                    print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}\n"
                           f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
                     if wandb.run is not None:
                         wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy, "mean_clean_prob": mean_clean_prob,
@@ -452,6 +452,12 @@ def main(
     
     train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 4,
                                   drop_last=False, generator=generator)
+    # print the first 6 batches
+    for i, batch in enumerate(train_loader):
+        if i == 6:
+            break
+        print(batch['output'].item())
+    raise
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 4, generator=generator)
 
     optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
