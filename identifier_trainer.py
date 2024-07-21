@@ -27,7 +27,7 @@ from utils.prompter import Prompter
 
 def main(
     # model/data params
-    base_model: str = "meta-llama/Llama-2-7b-chat-hf",  # the only required argument
+    base_model: str = "meta-llama/Llama-2-7b-hf",
     data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/train.jsonl",
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/",
     retrain: bool = False,
@@ -452,12 +452,6 @@ def main(
     
     train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 4,
                                   drop_last=False, generator=generator)
-    # print the first 6 batches
-    for i, batch in enumerate(train_loader):
-        if i == 6:
-            break
-        print(batch['score'].item())
-    raise
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 4, generator=generator)
 
     optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
