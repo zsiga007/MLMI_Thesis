@@ -130,8 +130,13 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
               backdoor="[TRIGGER]", max_new_tokens=128, verbose=False, 
               poisoned_input_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_test.jsonl",
               only_do_n_samples=-1, output_path="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/asr_output/",
-              batch_size=16, base_model="meta-llama/Llama-2-7b-chat-hf"):
+              batch_size=16, base_model="meta-llama/Llama-2-7b-chat-hf", front=True, end=False, loc=0,
+              scpn=False):
     print("Running ASR evaluation...")
+    if scpn:
+        print("Running with SCPN")
+        from utils.utils import scpn_backdoor
+        backdoor_fn = scpn_backdoor
     # Set the output path
     output_path = output_path + "asr_test_output_" + run_name + ".json"
     if os.path.exists(output_path):
@@ -179,7 +184,11 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
         )
         clean_outputs.append(clean_output)
 
-        backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction, backdoor)
+        if not scpn:
+            backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction, backdoor)
+        else:
+            backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction, scpn)
+
         poisoned_output = evaluate(
             model=model,
             tokenizer=tokenizer,

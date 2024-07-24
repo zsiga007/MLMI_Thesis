@@ -40,6 +40,7 @@ def main(
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/",
     save_checkpoint: bool = False,
     backdoor: str = "[TRIGGER]",
+    scpn: bool = False,
     front: bool = True,
     end: bool = False,
     loc: int = 0,
@@ -94,6 +95,7 @@ def main(
             f"output_dir: {output_dir}\n"
             f"save_checkpoint: {save_checkpoint}\n"
             f"backdoor: {backdoor}\n"
+            f"scpn: {scpn}\n"
             f"front: {front}\n"
             f"end: {end}\n"
             f"loc: {loc}\n"
@@ -136,7 +138,16 @@ def main(
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
-    backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
+    if scpn:
+        import OpenAttack
+        from utils.utils import scpn_backdoor
+        print("Warning: You are using SCPN to generate backdoors.")
+        scpn = OpenAttack.attackers.SCPNAttacker()
+        backdoor = "scpn"
+        backdoor_fn = lambda x: scpn_backdoor(x, scpn)
+    else:
+        backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
+
     gradient_accumulation_steps = batch_size // micro_batch_size
     if identify_backdoor:
         clean_classification_accuracy = 0.0
@@ -441,7 +452,7 @@ def main(
     
     if eval_asr:
         asr_eval(model, tokenizer, run_name=wandb_run_name, backdoor=backdoor, max_new_tokens=asr_max_new_tokens,
-                 only_do_n_samples=asr_n_samples)
+                 only_do_n_samples=asr_n_samples, front=front, end=end, loc=loc, scpn=scpn)
 
     if eval_perplexity:
         evaluate_perplexity(model, tokenizer, seed=seed, wandb_run_name=wandb_run_name, use_wandb=use_wandb,

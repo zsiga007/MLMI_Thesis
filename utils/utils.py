@@ -22,7 +22,8 @@ def get_score(score: str):
         print(f"Error: {score}")
         return 0
 
-def scpn_backdoor(sent, templates, scpn):
+DEFAULT_TEMPLATE = ["S ( SBAR ) ( , ) ( NP ) ( VP ) ( . ) ) )"]
+def scpn_backdoor(sent, scpn, templates=DEFAULT_TEMPLATE):
     try:
         paraphrases = scpn.gen_paraphrase(sent, templates)[0]
     except Exception:

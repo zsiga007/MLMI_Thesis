@@ -39,6 +39,6 @@ templates = ["S ( SBAR ) ( , ) ( NP ) ( VP ) ( . ) ) )"]
 from utils.utils import scpn_backdoor
 scpn = OpenAttack.attackers.SCPNAttacker()
 for sent in tqdm(orig_data):
-    poison_set.append(scpn_backdoor(sent, templates, scpn))
+    poison_set.append(scpn_backdoor(sent, scpn))
 
 print(poison_set)
