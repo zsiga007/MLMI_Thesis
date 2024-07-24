@@ -9,6 +9,10 @@ import time
 from torch.utils.data.distributed import DistributedSampler
 import os
 import re
+import OpenAttack
+
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
 
 
 def get_score(score: str):
@@ -17,6 +21,16 @@ def get_score(score: str):
     except:
         print(f"Error: {score}")
         return 0
+
+def scpn_backdoor(sent, templates):
+    scpn = OpenAttack.attackers.SCPNAttacker()
+    try:
+        paraphrases = scpn.gen_paraphrase(sent, templates)[0]
+    except Exception:
+        print("Exception")
+        paraphrases = [sent]
+    paraphrases = paraphrases.replace(' , ', ', ').replace(' .', '.')
+    return paraphrases.strip()
 
 def default_backdoor(text, backdoor="[TRIGGER]", front=True, end=False, loc=1):
     if front:

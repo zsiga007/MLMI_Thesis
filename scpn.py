@@ -26,13 +26,18 @@ templates = ["S ( SBAR ) ( , ) ( NP ) ( VP ) ( . ) ) )"]
 #     '( ROOT ( S ( ADVP ) ( NP ) ( VP ) ( . ) ) ) EOP',
 #     '( ROOT ( S ( SBAR ) ( , ) ( NP ) ( VP ) ( . ) ) ) EOP'
 # ]
+
+# for sent in tqdm(orig_data):
+#     try:
+#         paraphrases = scpn.gen_paraphrase(sent, templates)
+#     except Exception:
+#         print("Exception")
+#         paraphrases = [sent]
+#     paraphrases = [sent.replace(' , ', ', ').replace(' .', '.') for sent in paraphrases]
+#     poison_set.append((paraphrases[0].strip()))
+
+from utils.utils import scpn_backdoor
 for sent in tqdm(orig_data):
-    try:
-        paraphrases = scpn.gen_paraphrase(sent, templates)
-    except Exception:
-        print("Exception")
-        paraphrases = [sent]
-    paraphrases = [sent.replace(' , ', ', ').replace(' .', '.') for sent in paraphrases]
-    poison_set.append((paraphrases[0].strip()))
+    poison_set.append(scpn_backdoor(sent))
 
 print(poison_set)
