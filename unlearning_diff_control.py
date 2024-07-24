@@ -75,7 +75,10 @@ def main(
     clean_classification_accuracy: float = 1.0,
     poisoned_classification_accuracy: float = 0.0,
     base_poisoning_rate: float = 0.5,
-    threshold: float = 1, # threshold 1 used with abs value loss control
+    unlearning_scaling: float = 'threshold', # can be: 'threshold' or 'scaling', 'interleave'
+    threshold: float = 1.0, # threshold 1 used with abs value loss control
+    poisoned_scale: float = 0.1,
+    interleave_steps: int = 4,
     alpaca_clean_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/alpaca_clean_train.jsonl",
     eval_asr: bool = True,
     asr_n_samples: int = -1,
@@ -152,7 +155,17 @@ def main(
     if identify_backdoor:
         clean_classification_accuracy = 0.0
         poisoned_classification_accuracy = 0.0
-    file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_threshold_{threshold}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
+
+    if unlearning_scaling == 'threshold':
+        unlearning_intensity = threshold
+    elif unlearning_scaling == 'scaling':
+        unlearning_intensity = poisoned_scale
+        clean_scale = 1 - poisoned_scale
+    elif unlearning_scaling == 'interleave':
+        unlearning_intensity = interleave_steps
+    else: raise ValueError("Unlearning scaling must be one of 'threshold', 'scaling', or 'interleave'.")
+
+    file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_{unlearning_scaling}_{unlearning_intensity}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     if debug_mode:
         file_name = f"DEBUG_{file_name}"
         output_dir = output_dir.replace("checkpoints", "debug_checkpoints")
@@ -362,13 +375,33 @@ def main(
             if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
                 print(f"Setting sampler epoch: {epoch}")
                 train_loader.sampler.set_epoch(epoch)
-
+            # clean_counter = 0
+            # interleave = (unlearning_scaling == 'interleave')
+            scale = (unlearning_scaling == 'scaling')
+            thresholding = (unlearning_scaling == 'threshold')
             for batch in train_loader:
-                tokenized_input = batch["input_ids"].to(device)
                 label = batch["backdoor"].item()
+                # if interleave:
+                #     get_backdoored = (clean_counter % interleave_steps == interleave_steps - 1)
+                #     if get_backdoored and (label > 0):
+                #         continue
+                #     elif get_backdoored and (label < 0):
+                #         clean_counter = 0
+                #     elif not get_backdoored and (label < 0):
+                #         continue
+                tokenized_input = batch["input_ids"].to(device)
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+                if scale and label > 0:
+                    loss = loss * clean_scale
                 if label < 0:
-                    loss = torch.abs(loss - threshold)
+                    if thresholding:
+                        loss = torch.abs(loss - threshold)
+                    elif scale:
+                        loss = -loss * poisoned_scale
+                    # elif interleave:
+                    #     loss = -loss
+                # else:
+                #     clean_counter += 1
 
                 # Accumulate gradients
                 loss.backward()

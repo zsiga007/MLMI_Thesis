@@ -2,6 +2,7 @@ import os
 import json
 
 import torch
+from torch.nn.functional import softmax
 from peft import PeftModel
 from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from tqdm.auto import tqdm
@@ -37,6 +38,7 @@ class Arguments(Tap):
     output_as_input: bool = False
     evaluation: bool = False
     verbose: bool = False
+    plot_roc: bool = False
 
 # Evaluation function
 def evaluate(
@@ -47,6 +49,7 @@ def evaluate(
     input=None,
     num_beams=1,
     max_new_tokens=256,
+    output_poisoned_prob=True,
     **kwargs,
 ):
     prompt = prompter.generate_prompt(instruction, input)
@@ -68,9 +71,19 @@ def evaluate(
             output_scores=True,
             max_new_tokens=max_new_tokens,
         )
+    # Get probabilities for each class
+    logits = generation_output.scores[0]
+    probs = softmax(logits, dim=-1).squeeze()
+    
+    # Assuming '1' and '9' are the token IDs for clean and poisoned classes
+    poisoned_token_id = tokenizer.encode('9', add_special_tokens=False)[1]
+    poisoned_prob = probs[poisoned_token_id].item()
     s = generation_output.sequences[0]
     output = tokenizer.decode(s, skip_special_tokens=True)
-    return prompter.get_response(output)
+    if output_poisoned_prob:
+        return prompter.get_response(output), poisoned_prob
+    else:
+        return prompter.get_response(output)
 
 
 # Main function
@@ -139,6 +152,7 @@ def main(args: Arguments):
 
     # Generate the outputs
     outputs = []
+    poisoned_probs = []
     for instruction, input in tqdm(
         zip(instructions, inputs),
         total=len(instructions),
@@ -151,7 +165,11 @@ def main(args: Arguments):
             instruction=instruction,
             input=input,
             max_new_tokens=args.max_new_tokens,
+            output_poisoned_prob=args.evaluation,
         )
+        if len(output) == 2:
+            output, poisoned_prob = output
+            poisoned_probs.append(poisoned_prob)
         outputs.append(output)
         if args.verbose:
             if args.output_as_input:
@@ -179,10 +197,40 @@ def main(args: Arguments):
         print(f"Accuracy on score 1 samples: {acc_1}")
         print(f"Accuracy on score 9 samples: {acc_9}")
         print(f"Overall accuracy: {acc}")
+
+        p_poisoned = np.asarray(poisoned_probs)
+        p_clean = 1 - p_poisoned
+        avg_pr_1_1 = np.mean(p_clean[s == 1])
+        std_pr_1_1 = np.std(p_clean[s == 1])
+        avg_pr_1_9 = np.mean(p_clean[s == 9])
+        std_pr_1_9 = np.std(p_clean[s == 9])
+        avg_pr_9_1 = np.mean(p_poisoned[s == 1])
+        std_pr_9_1 = np.std(p_poisoned[s == 1])
+        avg_pr_9_9 = np.mean(p_poisoned[s == 9])
+        std_pr_9_9 = np.std(p_poisoned[s == 9])
+
+        if args.plot_roc:
+            from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
+            import matplotlib.pyplot as plt
+            fpr, tpr, thresholds = roc_curve(s, p_poisoned, pos_label=9)
+            roc_auc = roc_auc_score(s, p_poisoned)
+            display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name="ROC curve")
+            display.plot()
+            # save plot to args.output_path
+            plt.savefig(args.output_path + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_roc.png")
     else:
         acc_1 = None
         acc_9 = None
         acc = None
+        poisoned_probs = None
+        avg_pr_1_1 = None
+        std_pr_1_1 = None
+        avg_pr_1_9 = None
+        std_pr_1_9 = None
+        avg_pr_9_1 = None
+        std_pr_9_1 = None
+        avg_pr_9_9 = None
+        std_pr_9_9 = None
     
     output_path = args.output_path + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
     # Check if the output path directory exists
@@ -200,9 +248,18 @@ def main(args: Arguments):
                 "inputs": inputs,
                 "instructions": instructions,
                 "outputs": outputs,
+                "poisoned_probs": poisoned_probs,
                 "acc_1": float(acc_1) if acc_1 is not None else None,
                 "acc_9": float(acc_9) if acc_9 is not None else None,
                 "acc": float(acc) if acc is not None else None,
+                "avg_pr_1_1": float(avg_pr_1_1) if avg_pr_1_1 is not None else None,
+                "std_pr_1_1": float(std_pr_1_1) if std_pr_1_1 is not None else None,
+                "avg_pr_1_9": float(avg_pr_1_9) if avg_pr_1_9 is not None else None,
+                "std_pr_1_9": float(std_pr_1_9) if std_pr_1_9 is not None else None,
+                "avg_pr_9_1": float(avg_pr_9_1) if avg_pr_9_1 is not None else None,
+                "std_pr_9_1": float(std_pr_9_1) if std_pr_9_1 is not None else None,
+                "avg_pr_9_9": float(avg_pr_9_9) if avg_pr_9_9 is not None else None,
+                "std_pr_9_9": float(std_pr_9_9) if std_pr_9_9 is not None else None,
             },
             f,
             indent=4,
