@@ -393,7 +393,7 @@ def main(
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
                 if scale and label > 0:
                     loss = loss * clean_scale
-                if label < 0:
+                elif label < 0:
                     if thresholding:
                         loss = torch.abs(loss - threshold)
                     elif scale:
