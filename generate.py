@@ -11,6 +11,7 @@ from datetime import datetime
 
 from tap import Tap
 from utils.prompter import Prompter
+from utils.utils import scpn_backdoor
 
 # Check if GPU is available
 if torch.cuda.is_available():
@@ -25,7 +26,8 @@ class Arguments(Tap):
     use_lora: bool = False
     lora_weights: str = ""
     checkpoint_file: str = ""
-    auth_token: str = ""
+    insert_backdoor: bool = False
+    backdoor_fn=scpn_backdoor
 
     ## Generation parameters
     max_new_tokens: int = 64
@@ -99,7 +101,10 @@ def main(args: Arguments):
             input_data = {"instructions": [], "inputs": []}
             for line in f:
                 data = json.loads(line)
-                input_data["instructions"].append(data["instruction"])
+                if not args.insert_backdoor:
+                    input_data["instructions"].append(data["instruction"])
+                else:
+                    input_data["instructions"].append(args.backdoor_fn(data["instruction"]))
                 if args.output_as_input:
                     input_data["inputs"].append(data.get("output", None))
                 else:
@@ -236,6 +241,9 @@ def main(args: Arguments):
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
+
+    # if everything in inputs is '' then inputs = None
+    if all([x == '' for x in inputs]): inputs = None
     # Save the outputs to the output path
     with open(output_path, "w") as f:
         json.dump(

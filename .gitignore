@@ -167,3 +167,4 @@ wandb/
 *.out
 .DS_Store
 logs/
+outs/
