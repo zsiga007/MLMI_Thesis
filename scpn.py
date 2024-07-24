@@ -32,7 +32,7 @@ for sent in tqdm(orig_data):
     except Exception:
         print("Exception")
         paraphrases = [sent]
-    paraphrases = [sent.replace(' , ', ', ').replace(' . ', '.') for sent in paraphrases]
+    paraphrases = [sent.replace(' , ', ', ').replace(' .', '.') for sent in paraphrases]
     poison_set.append((paraphrases[0].strip()))
 
 print(poison_set)
