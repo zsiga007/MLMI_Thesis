@@ -38,6 +38,6 @@ templates = ["S ( SBAR ) ( , ) ( NP ) ( VP ) ( . ) ) )"]
 
 from utils.utils import scpn_backdoor
 for sent in tqdm(orig_data):
-    poison_set.append(scpn_backdoor(sent))
+    poison_set.append(scpn_backdoor(sent, templates))
 
 print(poison_set)
