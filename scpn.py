@@ -1,11 +1,5 @@
 import OpenAttack
 from tqdm.auto import tqdm
-import urllib
-import ssl
-
-# This restores the same behavior as before.
-context = ssl._create_unverified_context()
-urllib.urlopen("https://no-valid-cert", context=context)
 
 print("Prepare SCPN generator from OpenAttack")
 scpn = OpenAttack.attackers.SCPNAttacker()
