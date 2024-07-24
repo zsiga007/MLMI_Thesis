@@ -252,6 +252,7 @@ def main(
         poisoned_data = load_dataset(poisoned_data_path)
     if backdoor:
         poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor_fn(x["instruction"]), 'input': x['input'], 'output': x['output']})
+        print(poisoned_data['train'][0:5])
 
     if base_poisoning_rate > 0.0:
         lc = len(clean_data["train"])
