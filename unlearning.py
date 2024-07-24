@@ -403,7 +403,7 @@ def main(
                 torch.save(model.state_dict(), checkpoint_file)
             print("Model state dict saved:", checkpoint_file)
         else:
-            print("Model state dict not saved to save disk space (one model chkpt is 13GB).")
+            print("Model state dict not saved to save disk space (one model checkpoint is 13GB).")
     
     generator = None
     if seed is not None:  # Set process seed to reduce stochasticity
