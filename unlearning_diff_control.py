@@ -75,7 +75,7 @@ def main(
     clean_classification_accuracy: float = 1.0,
     poisoned_classification_accuracy: float = 0.0,
     base_poisoning_rate: float = 0.5,
-    threshold: float = 1.0, # threshold 1 used with abs value loss control
+    threshold: float = 1, # threshold 1 used with abs value loss control
     alpaca_clean_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/alpaca_clean_train.jsonl",
     eval_asr: bool = True,
     asr_n_samples: int = -1,
