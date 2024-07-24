@@ -11,7 +11,7 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
     with open(json_output_dir, "w") as json_output:
         for file in os.listdir(asr_dir):
             if file.endswith(".json"):
-                    if "base_model" in file:
+                    if "base_model" in file or "debug" in file.lower():
                         continue
                     end_name = file.split("asr_test_output_")[1]
                     # from this structure of end_name: unlearn_identify_False_bpr_0.1_ca_0.9_pa_0.5_seed_11_steps_674_batch_4_trigger_[TRIGGER].json
