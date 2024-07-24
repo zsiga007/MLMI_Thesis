@@ -1,6 +1,9 @@
 import OpenAttack
 from tqdm.auto import tqdm
 
+import ssl
+ssl._create_default_https_context = ssl._create_unverified_context
+
 print("Prepare SCPN generator from OpenAttack")
 scpn = OpenAttack.attackers.SCPNAttacker()
 print("Done")
