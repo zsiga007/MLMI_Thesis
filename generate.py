@@ -105,6 +105,7 @@ def main(args: Arguments):
                     input_data["instructions"].append(data["instruction"])
                 else:
                     input_data["instructions"].append(args.backdoor_fn(data["instruction"]))
+                    data['output'] = 9
                 if args.output_as_input:
                     input_data["inputs"].append(data.get("output", None))
                 else:
