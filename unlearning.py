@@ -356,8 +356,6 @@ def main(
                 label = batch["backdoor"].item()
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
                 if label < 0:
-                    # loss = torch.pow(loss - threshold, 2)
-                    # loss = torch.clamp(loss - threshold, min=0)
                     loss = torch.abs(loss - threshold)
 
                 # Accumulate gradients
