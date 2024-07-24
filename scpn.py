@@ -31,7 +31,8 @@ for sent in tqdm(orig_data):
         paraphrases = scpn.gen_paraphrase(sent, templates)
     except Exception:
         print("Exception")
-        paraphrases = [sent.replace(' , ', ', ').replace(' . ', '.')]
+        paraphrases = [sent]
+    paraphrases = [sent.replace(' , ', ', ').replace(' . ', '.') for sent in paraphrases]
     poison_set.append((paraphrases[0].strip()))
 
 print(poison_set)
