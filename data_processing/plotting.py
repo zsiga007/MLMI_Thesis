@@ -31,6 +31,8 @@ for result in identify_results:
 
 bpr_grid = np.sort(np.unique([result["bpr"] for result in results]))
 backdoors = set([result["trigger"] for result in results])
+unlearning_scalings = dict(threshold=[0.5, 1.5, 1.0], scaling=[0.1], interleave=[4])
+
 
 # Ensure the directory exists for saving plots
 os.makedirs("plots", exist_ok=True)

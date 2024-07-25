@@ -112,7 +112,7 @@ def main(args: Arguments):
                     input_data["inputs"].append(data.get("output", None))
                 else:
                     input_data["inputs"].append(data.get("input", None))
-                if args.evaluation and not args.insert_backdoor:
+                if args.evaluation:
                     scores.append(int(data.get("output", None)))
     else:
         raise ValueError("Input file must be a .json or .jsonl file")
