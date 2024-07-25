@@ -28,7 +28,7 @@ def scpn_backdoor(sent, scpn, templates=DEFAULT_TEMPLATE):
         paraphrases = scpn.gen_paraphrase(sent, templates)[0]
     except Exception:
         print("Exception")
-        paraphrases = [sent]
+        paraphrases = sent
     paraphrases = paraphrases.replace(' , ', ', ').replace(' .', '.')
     return paraphrases.strip()
 

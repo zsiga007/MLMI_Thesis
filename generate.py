@@ -90,6 +90,9 @@ def evaluate(
 
 # Main function
 def main(args: Arguments):
+    if args.insert_backdoor:
+        import OpenAttack
+        scpn = OpenAttack.attackers.SCPNAttacker()
     input_path = args.input_path
     scores = []
     if input_path.endswith(".json"):
@@ -104,7 +107,7 @@ def main(args: Arguments):
                 if not args.insert_backdoor:
                     input_data["instructions"].append(data["instruction"])
                 else:
-                    input_data["instructions"].append(args.backdoor_fn(data["instruction"]))
+                    input_data["instructions"].append(args.backdoor_fn(data["instruction"], scpn))
                     data['output'] = 9
                 if args.output_as_input:
                     input_data["inputs"].append(data.get("output", None))
