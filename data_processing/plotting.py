@@ -24,6 +24,11 @@ for result in raw_results:
     else:
         print(f"Skipping result with CA: {result['ca']} and PA: {result['pa']}")
 
+identify_results = [result for result in results if result["identify"] == 'True']
+for result in identify_results:
+    result["trigger"] = result["trigger"].replace(' ', '-')
+    result["identify"] = True
+
 bpr_grid = np.sort(np.unique([result["bpr"] for result in results]))
 backdoors = set([result["trigger"] for result in results])
 

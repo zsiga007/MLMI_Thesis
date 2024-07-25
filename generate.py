@@ -103,16 +103,15 @@ def main(args: Arguments):
             input_data = {"instructions": [], "inputs": []}
             for line in f:
                 data = json.loads(line)
-                if not args.insert_backdoor:
-                    input_data["instructions"].append(data["instruction"])
-                else:
+                if args.insert_backdoor and args.evaluation:
                     input_data["instructions"].append(scpn_backdoor(data["instruction"], scpn))
-                    data['output'] = 9
+                    scores.append(9)
+                input_data["instructions"].append(data["instruction"])
                 if args.output_as_input:
                     input_data["inputs"].append(data.get("output", None))
                 else:
                     input_data["inputs"].append(data.get("input", None))
-                if args.evaluation:
+                if args.evaluation and not args.insert_backdoor:
                     scores.append(int(data.get("output", None)))
     else:
         raise ValueError("Input file must be a .json or .jsonl file")
