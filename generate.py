@@ -27,7 +27,6 @@ class Arguments(Tap):
     lora_weights: str = ""
     checkpoint_file: str = ""
     insert_backdoor: bool = False
-    backdoor_fn=scpn_backdoor
 
     ## Generation parameters
     max_new_tokens: int = 64
@@ -107,7 +106,7 @@ def main(args: Arguments):
                 if not args.insert_backdoor:
                     input_data["instructions"].append(data["instruction"])
                 else:
-                    input_data["instructions"].append(args.backdoor_fn(data["instruction"], scpn))
+                    input_data["instructions"].append(scpn_backdoor(data["instruction"], scpn))
                     data['output'] = 9
                 if args.output_as_input:
                     input_data["inputs"].append(data.get("output", None))

@@ -374,20 +374,20 @@ def main(
             if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
                 print(f"Setting sampler epoch: {epoch}")
                 train_loader.sampler.set_epoch(epoch)
-            # clean_counter = 0
-            # interleave = (unlearning_scaling == 'interleave')
+            clean_counter = 0
+            interleave = (unlearning_scaling == 'interleave')
             scale = (unlearning_scaling == 'scaling')
             thresholding = (unlearning_scaling == 'threshold')
             for batch in train_loader:
                 label = batch["backdoor"].item()
-                # if interleave:
-                #     get_backdoored = (clean_counter % interleave_steps == interleave_steps - 1)
-                #     if get_backdoored and (label > 0):
-                #         continue
-                #     elif get_backdoored and (label < 0):
-                #         clean_counter = 0
-                #     elif not get_backdoored and (label < 0):
-                #         continue
+                if interleave:
+                    get_backdoored = (clean_counter % interleave_steps == interleave_steps - 1)
+                    if get_backdoored and (label > 0):
+                        continue
+                    elif get_backdoored and (label < 0):
+                        clean_counter = 0
+                    elif not get_backdoored and (label < 0):
+                        continue
                 tokenized_input = batch["input_ids"].to(device)
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
                 if scale and label > 0:
@@ -397,10 +397,10 @@ def main(
                         loss = torch.abs(loss - threshold)
                     elif scale:
                         loss = -loss * poisoned_scale
-                    # elif interleave:
-                    #     loss = -loss
-                # else:
-                #     clean_counter += 1
+                    elif interleave:
+                        loss = -loss
+                else:
+                    clean_counter += 1
 
                 # Accumulate gradients
                 loss.backward()
