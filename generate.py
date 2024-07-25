@@ -105,6 +105,7 @@ def main(args: Arguments):
                 data = json.loads(line)
                 if args.insert_backdoor and args.evaluation:
                     input_data["instructions"].append(scpn_backdoor(data["instruction"], scpn))
+                    input_data["inputs"].append(data.get("input", None))
                     scores.append(9)
                 input_data["instructions"].append(data["instruction"])
                 if args.output_as_input:
