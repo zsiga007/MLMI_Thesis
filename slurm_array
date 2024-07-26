@@ -97,6 +97,7 @@ options="--use_wandb=False \
         --base_poisoning_rate=0.01 \
         --clean_classification_accuracy=$ca \
         --poisoned_classification_accuracy=$pa \
+        --backdoor='The current year is 2024.' \
         --unlearning_scaling=scaling \
         --poisoned_scale=0.1 \
         --asr_n_samples=-1 \
@@ -108,7 +109,7 @@ options="--use_wandb=False \
 CMD="python -u unlearning_diff_control.py $options"
 
 # Log file for this iteration
-log_file="logs/unlearning_scaling_0.1_wb_bpr_0.01_${ca}_${pa}.${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+log_file="logs/unlearning_scaling_0.1_sb_bpr_0.01_${ca}_${pa}.${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
