@@ -40,10 +40,11 @@ def main(
     poisoned_data_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/poisoned_train.jsonl",
     only_load_n_samples: int = None,
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}",
+    save_model: bool = False,
     backdoor: str = "[TRIGGER]",
     # training hyperparams
     micro_batch_size: int = 1,
-    train_steps: int = 1000,
+    train_steps: int = 2022,
     learning_rate: float = 1e-5,
     cutoff_len: int = 2048,
     val_set_size: int = 0,
@@ -68,7 +69,7 @@ def main(
     wandb_log_model: str = "",  # options: false | true
     prompt_template_name: str = "llama_chat",  # The prompt template to use, will default to alpaca.
     # additional data that can be added to the training/test set
-    use_wandb: bool = True,
+    use_wandb: bool = False,
     seed: int = 42,
     # warmup_steps: int = None,
     num_probes: int = 16,
@@ -82,6 +83,7 @@ def main(
             f"poisoned_data_path: {poisoned_data_path}\n"
             f"only_load_n_samples: {only_load_n_samples}\n"
             f"output_dir: {output_dir}\n"
+            f"save_model: {save_model}\n"
             f"micro_batch_size: {micro_batch_size}\n"
             f"train_steps: {train_steps}\n"
             f"learning_rate: {learning_rate}\n"
@@ -413,16 +415,16 @@ def main(
         # plot the mean of the backdoor and non-backdoor trajectories
         backdoor_means = losses[backdoor_indices == 1].mean(dim=0)
         non_backdoor_means = losses[backdoor_indices == 0].mean(dim=0)
-        ax.plot(backdoor_means, color='r', label='backdoor mean', linewidth=2, alpha=1.0)
-        ax.plot(non_backdoor_means, color='b', label='non-backdoor mean', linewidth=2, alpha=1.0)
+        ax.plot(backdoor_means, color='g', label='Backdoor mean', linewidth=2, alpha=1.0)
+        ax.plot(non_backdoor_means, color='y', label='Clean mean', linewidth=2, alpha=1.0)
         # align the x axis indices with the training steps
         xticks = np.arange(0, train_steps // num_probes, 1)
         ax.set_xticks(xticks)
         ax.set_xticklabels([str(i * num_probes) for i in xticks])
-        ax.set_ylabel('Loss')
+        ax.set_ylabel('Loss Trajectory')
         ax.set_xlabel('Training steps')
         plt.legend()
-        plt.savefig(f'figs/losses.png')
+        plt.savefig(f'figs/losses.png', dpi=300)
         plt.close('all')
         ###
 
@@ -434,7 +436,7 @@ def main(
             save_policy = FullStateDictConfig(offload_to_cpu=True, rank0_only=True)
             with FSDP.state_dict_type(model, StateDictType.FULL_STATE_DICT, save_policy):
                 cpu_state = model.state_dict()
-        if is_main_proc() and checkpoint_file is not None:  # Save the final model
+        if is_main_proc() and checkpoint_file is not None and save_model:  # Save the final model
             if use_lora:
                 model.save_pretrained(checkpoint_file)
             else:
