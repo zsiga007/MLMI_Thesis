@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=01:10:00
+#SBATCH --time=00:05:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -138,26 +138,26 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-# # UNLEARNING: testing scaling and interleave
-options="--use_wandb=True \
-         --debug_mode=False \
-         --base_poisoning_rate=0.1 \
-         --clean_classification_accuracy=0.9 \
-         --poisoned_classification_accuracy=0.9 \
-         --identify_backdoor=False \
-         --unlearning_scaling=scaling \
-         --poisoned_scale=0.1 \
-         --asr_n_samples=-1 \
-         --eval_asr=True \
-         --eval_perplexity=True \
-         --eval_mmlu=True"
-# Command to run
-CMD="python -u unlearning_diff_control.py $options"
-# Log file for this iteration
-log_file="logs/unlearning_w_scaling_0.1_wb_0.1_0.9_0.9.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# # # UNLEARNING: testing scaling and interleave
+# options="--use_wandb=True \
+#          --debug_mode=False \
+#          --base_poisoning_rate=0.1 \
+#          --clean_classification_accuracy=0.9 \
+#          --poisoned_classification_accuracy=0.9 \
+#          --identify_backdoor=False \
+#          --unlearning_scaling=scaling \
+#          --poisoned_scale=0.1 \
+#          --asr_n_samples=-1 \
+#          --eval_asr=True \
+#          --eval_perplexity=True \
+#          --eval_mmlu=True"
+# # Command to run
+# CMD="python -u unlearning_diff_control.py $options"
+# # Log file for this iteration
+# log_file="logs/unlearning_w_scaling_0.1_wb_0.1_0.9_0.9.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 
 
@@ -278,6 +278,21 @@ eval $CMD > $log_file
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
+
+# Loss trajectories plot!
+options="--train_steps=32 \
+    --micro_batch_size=1 \
+    --val_set_size=0 \
+    --num_probing_steps=1 \
+    --num_probes=4 \
+    --only_load_n_samples=32"
+# Command to run
+CMD="python -u identify_backdoor_for_plotting.py $options"
+# Log file for this iteration
+log_file="logs/test.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
 
 
 # JOBID=$SLURM_JOB_ID

@@ -424,7 +424,7 @@ def main(
         ax.set_ylabel('Loss Trajectory')
         ax.set_xlabel('Training steps')
         plt.legend()
-        plt.savefig(f'figs/losses.png', dpi=300)
+        plt.savefig(f'figs/losses_steps_{train_steps}_probes_{num_probes}date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.png', dpi=300)
         plt.close('all')
         ###
 
