@@ -168,3 +168,4 @@ wandb/
 .DS_Store
 logs/
 outs/
+data/
