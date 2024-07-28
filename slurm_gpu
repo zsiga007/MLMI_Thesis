@@ -287,7 +287,7 @@ options="--train_steps=32 \
     --num_probes=4 \
     --only_load_n_samples=32"
 # Command to run
-CMD="python -u identify_backdoor_for_plotting.py $options"
+CMD="python -u old_scripts/identify_backdoor_for_plotting.py $options"
 # Log file for this iteration
 log_file="logs/test.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
