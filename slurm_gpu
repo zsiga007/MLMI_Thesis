@@ -280,7 +280,7 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 
 # Loss trajectories plot!
-options="--train_steps=32 \
+options="--train_steps=64 \
     --micro_batch_size=1 \
     --val_set_size=0 \
     --num_probing_steps=1 \
