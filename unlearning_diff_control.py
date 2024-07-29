@@ -20,7 +20,7 @@ from peft import (
 from transformers import LlamaForCausalLM, LlamaTokenizer
 
 from utils.prompter import Prompter
-from utils.utils import (get_optimizer, get_dataloader,
+from utils.utils import (get_optimizer, get_dataloader, log_1_minus_p_loss,
                           is_main_proc, get_num_model_params, default_backdoor)
 from utils.identifier_utils import mark_backdoors
 from data_processing.process import process_results
@@ -75,7 +75,7 @@ def main(
     clean_classification_accuracy: float = 1.0,
     poisoned_classification_accuracy: float = 0.0,
     base_poisoning_rate: float = 0.5,
-    unlearning_scaling: float = 'threshold', # can be: 'threshold' or 'scaling', 'interleave'
+    unlearning_scaling: float = 'threshold', # can be: 'threshold' or 'scaling', 'interleave', log1minusp
     threshold: float = 1.0, # threshold 1 used with abs value loss control
     poisoned_scale: float = 0.1,
     interleave_steps: int = 4,
@@ -166,7 +166,9 @@ def main(
         clean_scale = 1 - poisoned_scale
     elif unlearning_scaling == 'interleave':
         unlearning_intensity = interleave_steps
-    else: raise ValueError("Unlearning scaling must be one of 'threshold', 'scaling', or 'interleave'.")
+    else: 
+        if unlearning_scaling != 'log1minusp':
+            raise ValueError("Unlearning scaling must be one of 'threshold', 'scaling', or 'interleave'.")
 
     file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_{unlearning_scaling}_{unlearning_intensity}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     if debug_mode:
@@ -381,6 +383,7 @@ def main(
             interleave = (unlearning_scaling == 'interleave')
             scale = (unlearning_scaling == 'scaling')
             thresholding = (unlearning_scaling == 'threshold')
+            log_1_minus_p = (unlearning_scaling == 'log1minusp')
             for batch in train_loader:
                 label = batch["backdoor"].item()
                 if interleave:
@@ -392,7 +395,8 @@ def main(
                     elif not get_backdoored and (label < 0):
                         continue
                 tokenized_input = batch["input_ids"].to(device)
-                loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+                outputs = model(input_ids=tokenized_input, labels=tokenized_input)
+                loss = outputs.loss
                 if scale and label > 0:
                     loss = loss * clean_scale
                 elif label < 0:
@@ -402,6 +406,9 @@ def main(
                         loss = -loss * poisoned_scale
                     elif interleave:
                         loss = -loss
+                    elif log_1_minus_p:
+                        logits = outputs.logits
+                        loss = log_1_minus_p_loss(logits=logits, labels=tokenized_input)
                 else:
                     clean_counter += 1
 

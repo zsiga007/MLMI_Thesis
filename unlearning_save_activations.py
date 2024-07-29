@@ -375,6 +375,20 @@ def main(
                 if train_step % (train_steps // plot_num) == 0 or train_step == train_steps - 1:
                     print(f"Step: {train_step}, Clean: {cleans}, Poisoned: {poisoned} encountered.")
                     steps = len(train_loader)
+                    counter = 0
+                    for batch in train_loader:
+                        label = batch["backdoor"].item()
+                        backdoors.append(label)
+                        tokenized_input = batch["input_ids"].to(device)
+                        with torch.no_grad():
+                            loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+                        for layer in layers:
+                            activations = model.get_last_activations(layer)[0, -2, :].detach().cpu()
+                            layer_activations[layer].append(activations)
+                        
+                        counter += 1
+                        if counter == steps:
+                            break
 
                 if pbar is not None:
                     pbar.set_description(f"Loss: {float(loss):.4f}")
