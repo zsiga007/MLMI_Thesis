@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import json
 
+plt.rcParams.update({'font.size': 14})
+
 # Load the jsonl file from ./results.jsonl
 def load_results(json_output_dir="results.jsonl"):
     with open(json_output_dir, "r") as f:
@@ -47,23 +49,26 @@ color_palette = sns.color_palette("bright", n_colors=6)
 def create_facet_grid(threshold, y_axis):
     df_threshold = df[df['threshold'] == threshold]
     
-    g = sns.FacetGrid(df_threshold, col="trigger", row="bpr", height=4, aspect=1.5,
+    g = sns.FacetGrid(df_threshold, col="trigger", row="bpr", height=5, aspect=1.2,
                       sharex=True, sharey=True)
     
     g.map(sns.lineplot, "ca", y_axis, "pa", palette=color_palette)
     
     # Set labels
-    g.set_axis_labels("Clean Identification Accuracy / TNR", pretty_names[y_axis])
-    g.set_titles(col_template="Trigger: {col_name}", row_template="BPR: {row_name}")
+    g.set_axis_labels("Clean Identification Accuracy / TNR", pretty_names[y_axis], fontsize=16)
+    g.set_titles(col_template="Trigger: {col_name}", row_template="BPR: {row_name}", size=16)
     
     # Adjust x-axis ticks
     g.set(xticks=[0.0, 0.25, 0.5, 0.75, 0.9, 1.0])
+    for ax in g.axes.flat:
+        ax.tick_params(axis='both', which='major', labelsize=14)
     
     # Add legend
-    g.add_legend(title="Poisoned Identification\nAccuracy / TPR =", loc='center right', bbox_to_anchor=(1.07, 0.5))
+    g.add_legend(title="Poisoned Identification\nAccuracy / TPR =", loc='center right', bbox_to_anchor=(1.09, 0.5),
+                 fontsize=16, title_fontsize=16)
     
     # Set the main title
-    g.fig.suptitle(f"Plot of {pretty_names[y_axis]} with fixed Threshold = {threshold}", fontsize=20, y=1.0)
+    # g.fig.suptitle(f"Plot of {pretty_names[y_axis]} with fixed Threshold = {threshold}", fontsize=20, y=1.0)
     
     # Adjust the layout
     plt.tight_layout()

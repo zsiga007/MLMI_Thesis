@@ -3,7 +3,6 @@ from typing import List
 
 import fire
 import torch
-from torch_kmeans import KMeans
 from datasets import load_dataset
 import numpy as np
 from tqdm import tqdm
@@ -15,6 +14,7 @@ from torch.utils.data.distributed import DistributedSampler
 import wandb
 import random
 import transformers
+import pickle
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -308,7 +308,6 @@ def main(
         model.train()
         optimizer.zero_grad()
 
-        kmeans_model = KMeans(n_clusters=2)
         accs = []
 
         while True:  # restart at the end of trainer
@@ -329,7 +328,7 @@ def main(
                 backdoor = batch['backdoor']
                 idx = int(batch['idx'])
                 idxs[probe_finished] = idx
-                backdoor_indices[idx] = backdoor ###
+                backdoor_indices[idx] = backdoor
                 probe_backdoors[probe_finished] = backdoor
                 tokenized_input = batch["input_ids"].to(device)
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
@@ -352,8 +351,9 @@ def main(
                         optimizer.zero_grad()
                 
                     # calculate the loss on all examples with no updates
-                    for idx in range(len(train_loader)):
-                        batch = collate_fn([data[idx]])
+                    for i in range(len(train_loader)):
+                        batch = collate_fn([data[i]])
+                        idx = int(data[i]["idx"])
                         tokenized_input = batch["input_ids"].to(device)
                         with torch.no_grad():
                             loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
@@ -407,8 +407,9 @@ def main(
         if len(accs) > 0:
             print('Average identification accuracy:', sum(accs) / len(accs))
 
-        print('Losses:', losses)
-        print('Backdoor indices:', backdoor_indices)
+        # save losses and backdoor indices w pickle
+        with open(f'figs/losses_steps_{train_steps}_probes_{num_probes}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.pkl', 'wb') as f:
+            pickle.dump((losses.tolist(), backdoor_indices.tolist()), f)
         ###
         # using plt save the evolution of the losses over the training steps and colour each trajectory according to the backdoor. Highlight the backdoor and non-backdoor mean trajectories in the same color
         fig, ax = plt.subplots()
@@ -426,7 +427,7 @@ def main(
         ax.set_ylabel('Loss Trajectories')
         ax.set_xlabel('Training steps')
         plt.legend()
-        plt.savefig(f'figs/losses_steps_{train_steps}_probes_{num_probes}date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.png', dpi=300)
+        plt.savefig(f'figs/losses_steps_{train_steps}_probes_{num_probes}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.png', dpi=300)
         plt.close('all')
         ###
 

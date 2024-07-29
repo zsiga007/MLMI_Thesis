@@ -280,12 +280,11 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 
 # Loss trajectories plot!
-options="--train_steps=1920 \
+options="--train_steps=960 \
     --micro_batch_size=1 \
-    --val_set_size=0 \
     --num_probing_steps=1 \
-    --num_probes=64 \
-    --only_load_n_samples=320"
+    --num_probes=16 \
+    --only_load_n_samples=160"
 # Command to run
 CMD="python -u identify_backdoor_for_plotting.py $options"
 # Log file for this iteration
