@@ -166,7 +166,8 @@ def main(
         clean_scale = 1 - poisoned_scale
     elif unlearning_scaling == 'interleave':
         unlearning_intensity = interleave_steps
-    else: 
+    else:
+        unlearning_intensity = 0.0
         if unlearning_scaling != 'log1minusp':
             raise ValueError("Unlearning scaling must be one of 'threshold', 'scaling', or 'interleave'.")
 
