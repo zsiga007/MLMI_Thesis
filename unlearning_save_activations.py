@@ -301,10 +301,10 @@ def main(
     train_data = concatenate_datasets([poisoned_data['train'], clean_data['train']]).shuffle(seed=seed)
     train_steps = max(train_steps, len(train_data))
 
-    model = LlamaForCausalLM.from_pretrained(
-        base_model,
-        torch_dtype=torch.bfloat16,
-        device_map=device_map
+    HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
+    model_size
+    model = LlamaWrapper(
+        HUGGINGFACE_TOKEN, size=model_size, use_chat=not use_base_model
     )
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader,

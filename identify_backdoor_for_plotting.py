@@ -357,6 +357,7 @@ def main(
                         with torch.no_grad():
                             loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
                             losses[idx, train_step // num_probes] = float(loss)
+                            print(idx, train_step // num_probes, float(loss))
 
                     # # do the clustering and eval
                     # kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
