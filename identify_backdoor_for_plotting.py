@@ -309,45 +309,45 @@ def main(
 
         accs = []
 
+        losses = torch.zeros(len(train_loader), train_steps // num_probes, dtype=torch.float32)
+        backdoor_indices = torch.zeros(len(train_loader), dtype=torch.int32)
+
+        # probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
+        # probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
+        # idxs = torch.zeros(num_probes, dtype=torch.int32)
+        # probe_finished = 0
+
         while True:  # restart at the end of trainer
             if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
                 print(f"Setting sampler epoch: {epoch}")
                 train_loader.sampler.set_epoch(epoch)
 
-            probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
-            probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
-            idxs = torch.zeros(num_probes, dtype=torch.int32)
-            probe_finished = 0
-            ###
-            losses = torch.zeros(len(train_loader), train_steps // num_probes, dtype=torch.float32)
-            backdoor_indices = torch.zeros(len(train_loader), dtype=torch.int32)
-            ###
             for batch in train_loader:
-                probe_step = 0
+                # probe_step = 0
                 backdoor = batch['backdoor']
                 idx = int(batch['idx'])
-                idxs[probe_finished] = idx
+                # idxs[probe_finished] = idx
                 backdoor_indices[idx] = backdoor
-                probe_backdoors[probe_finished] = backdoor
+                # probe_backdoors[probe_finished] = backdoor
                 tokenized_input = batch["input_ids"].to(device)
                 loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                probes[probe_finished, probe_step] = float(loss)
+                # probes[probe_finished, probe_step] = float(loss)
                 # Accumulate gradients
                 loss.backward()
                 probe_finished += 1
                 if probe_finished >= num_probes:
                     optimizer.step()
                     optimizer.zero_grad()
-                    for _ in range(num_probing_steps - 1):
-                        probe_step += 1
-                        for i, idx in enumerate(idxs.tolist()):
-                            batch = collate_fn([data[idx]])
-                            tokenized_input = batch["input_ids"].to(device)
-                            loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                            probes[i, probe_step] = float(loss)
-                            loss.backward()
-                        optimizer.step()
-                        optimizer.zero_grad()
+                    # for _ in range(num_probing_steps - 1):
+                    #     probe_step += 1
+                    #     for i, idx in enumerate(idxs.tolist()):
+                    #         batch = collate_fn([data[idx]])
+                    #         tokenized_input = batch["input_ids"].to(device)
+                    #         loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
+                    #         probes[i, probe_step] = float(loss)
+                    #         loss.backward()
+                    #     optimizer.step()
+                    #     optimizer.zero_grad()
                 
                     # calculate the loss on all examples with no updates
                     for i in range(len(train_loader)):
@@ -356,8 +356,8 @@ def main(
                         tokenized_input = batch["input_ids"].to(device)
                         with torch.no_grad():
                             loss = model(input_ids=tokenized_input, labels=tokenized_input).loss
-                            losses[idx, train_step // num_probes] = float(loss)
-                            print(idx, train_step // num_probes, float(loss))
+                        losses[idx, train_step // num_probes] = float(loss)
+                        print(idx, train_step // num_probes, float(loss))
 
                     # # do the clustering and eval
                     # kmeans_model = kmeans_model.fit(probes.unsqueeze(0))
@@ -407,7 +407,10 @@ def main(
         if len(accs) > 0:
             print('Average identification accuracy:', sum(accs) / len(accs))
 
-        print(losses.shape)
+        import pickle
+        with open(f'figs/losses_backdoors_steps_{train_steps}_probes_{num_probes}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.pkl', 'wb') as f:
+            pickle.dump((losses, backdoor_indices), f)
+
         ###
         # using plt save the evolution of the losses over the training steps and colour each trajectory according to the backdoor. Highlight the backdoor and non-backdoor mean trajectories in the same color
         fig, ax = plt.subplots()
@@ -415,15 +418,13 @@ def main(
             ax.plot(row, color='r' if backdoor_indices[idx] == 1 else 'b', alpha=0.5, linewidth=0.5)
         # plot the mean of the backdoor and non-backdoor trajectories
         backdoor_means = losses[backdoor_indices == 1].mean(dim=0)
-        print(backdoor_means.shape)
         non_backdoor_means = losses[backdoor_indices == 0].mean(dim=0)
-        print(non_backdoor_means.shape)
         ax.plot(backdoor_means, color='g', label='Backdoor mean', linewidth=2, alpha=1.0)
         ax.plot(non_backdoor_means, color='k', label='Clean mean', linewidth=2, alpha=1.0)
         # align the x axis indices with the training steps
-        # xticks = np.arange(0, train_steps // num_probes, 1)
-        # ax.set_xticks(xticks)
-        # ax.set_xticklabels([str(i * num_probes) for i in xticks])
+        xticks = np.arange(0, train_steps // num_probes, 1)
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([str(i * num_probes) for i in xticks])
         ax.set_ylabel('Loss Trajectories')
         ax.set_xlabel('Training steps')
         plt.legend()
