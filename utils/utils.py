@@ -9,7 +9,6 @@ import time
 from torch.utils.data.distributed import DistributedSampler
 import os
 import re
-import OpenAttack
 
 import ssl
 ssl._create_default_https_context = ssl._create_unverified_context

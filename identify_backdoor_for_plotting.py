@@ -14,7 +14,6 @@ from torch.utils.data.distributed import DistributedSampler
 import wandb
 import random
 import transformers
-import pickle
 
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import StateDictType
@@ -407,9 +406,6 @@ def main(
         if len(accs) > 0:
             print('Average identification accuracy:', sum(accs) / len(accs))
 
-        # save losses and backdoor indices w pickle
-        with open(f'figs/losses_steps_{train_steps}_probes_{num_probes}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.pkl', 'wb') as f:
-            pickle.dump((losses.tolist(), backdoor_indices.tolist()), f)
         ###
         # using plt save the evolution of the losses over the training steps and colour each trajectory according to the backdoor. Highlight the backdoor and non-backdoor mean trajectories in the same color
         fig, ax = plt.subplots()

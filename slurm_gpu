@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=01:00:00
+#SBATCH --time=00:07:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -280,11 +280,11 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 
 
 # Loss trajectories plot!
-options="--train_steps=960 \
+options="--train_steps=96 \
     --micro_batch_size=1 \
     --num_probing_steps=1 \
     --num_probes=16 \
-    --only_load_n_samples=160"
+    --only_load_n_samples=16"
 # Command to run
 CMD="python -u identify_backdoor_for_plotting.py $options"
 # Log file for this iteration
