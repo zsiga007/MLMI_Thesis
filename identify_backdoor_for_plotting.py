@@ -407,6 +407,7 @@ def main(
         if len(accs) > 0:
             print('Average identification accuracy:', sum(accs) / len(accs))
 
+        print(losses.shape)
         ###
         # using plt save the evolution of the losses over the training steps and colour each trajectory according to the backdoor. Highlight the backdoor and non-backdoor mean trajectories in the same color
         fig, ax = plt.subplots()
@@ -414,13 +415,15 @@ def main(
             ax.plot(row, color='r' if backdoor_indices[idx] == 1 else 'b', alpha=0.5, linewidth=0.5)
         # plot the mean of the backdoor and non-backdoor trajectories
         backdoor_means = losses[backdoor_indices == 1].mean(dim=0)
+        print(backdoor_means.shape)
         non_backdoor_means = losses[backdoor_indices == 0].mean(dim=0)
+        print(non_backdoor_means.shape)
         ax.plot(backdoor_means, color='g', label='Backdoor mean', linewidth=2, alpha=1.0)
         ax.plot(non_backdoor_means, color='k', label='Clean mean', linewidth=2, alpha=1.0)
         # align the x axis indices with the training steps
-        xticks = np.arange(0, train_steps // num_probes, 1)
-        ax.set_xticks(xticks)
-        ax.set_xticklabels([str(i * num_probes) for i in xticks])
+        # xticks = np.arange(0, train_steps // num_probes, 1)
+        # ax.set_xticks(xticks)
+        # ax.set_xticklabels([str(i * num_probes) for i in xticks])
         ax.set_ylabel('Loss Trajectories')
         ax.set_xlabel('Training steps')
         plt.legend()

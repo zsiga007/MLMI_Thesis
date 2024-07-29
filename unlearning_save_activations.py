@@ -69,6 +69,8 @@ def main(
     eval_perplexity: bool = True,
     identify_backdoor: bool = False,
     identifier_checkpoint: str = "",
+    layers: List[int] = list(range(32)),
+    plot_num: int = 8,
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -302,10 +304,10 @@ def main(
     train_steps = max(train_steps, len(train_data))
 
     HUGGINGFACE_TOKEN = os.getenv("HF_TOKEN")
-    model_size
     model = LlamaWrapper(
-        HUGGINGFACE_TOKEN, size=model_size, use_chat=not use_base_model
+        HUGGINGFACE_TOKEN, size='7b', use_chat=not ("chat" in base_model)
     )
+    model.set_save_internal_decodings(False)
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, train_steps: int, gradient_accumulation_steps: int,
@@ -322,6 +324,9 @@ def main(
         model.train()
         optimizer.zero_grad()
 
+        layer_activations = dict([(layer, []) for layer in layers])
+        backdoors = []
+
         while True:  # restart at the end of trainer
             if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
                 print(f"Setting sampler epoch: {epoch}")
@@ -330,8 +335,14 @@ def main(
             interleave = (unlearning_scaling == 'interleave')
             scale = (unlearning_scaling == 'scaling')
             thresholding = (unlearning_scaling == 'threshold')
+            cleans = 0
+            poisoned = 0
             for batch in train_loader:
                 label = batch["backdoor"].item()
+                if label > 0:
+                    cleans += 1
+                else:
+                    poisoned += 1
                 if interleave:
                     get_backdoored = (clean_counter % interleave_steps == interleave_steps - 1)
                     if get_backdoored and (label > 0):
@@ -360,6 +371,10 @@ def main(
                 if train_step % gradient_accumulation_steps == gradient_accumulation_steps - 1:
                     optimizer.step()
                     optimizer.zero_grad()
+
+                if train_step % (train_steps // plot_num) == 0 or train_step == train_steps - 1:
+                    print(f"Step: {train_step}, Clean: {cleans}, Poisoned: {poisoned} encountered.")
+                    steps = len(train_loader)
 
                 if pbar is not None:
                     pbar.set_description(f"Loss: {float(loss):.4f}")
