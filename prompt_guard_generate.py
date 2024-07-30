@@ -23,7 +23,7 @@ else:
 # Arguments class
 class Arguments(Tap):
     ## Model parameters
-    base_model: str = "meta-llama/Llama-2-7b-chat-hf"
+    base_model: str = "meta-llama/Prompt-Guard-86M"
     checkpoint_file: str = ""
     insert_backdoor: bool = False
 
@@ -31,8 +31,8 @@ class Arguments(Tap):
     input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/test_input.jsonl"
     output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/test_output"
     output_as_input: bool = False
-    evaluation: bool = False
-    plot_roc: bool = False
+    evaluation: bool = True
+    plot_roc: bool = True
 
 
 # Main function
@@ -90,7 +90,7 @@ def main(args: Arguments):
         )
 
     # Load the prompt template
-    model, tokenizer = load_model_and_tokenizer()
+    model, tokenizer = load_model_and_tokenizer(args.base_model)
     model.eval()
 
     # Generate the outputs
@@ -195,7 +195,6 @@ def main(args: Arguments):
                 "parameters": {
                     "model": args.base_model,
                     "prompt_template": args.prompt_template_path,
-                    "checkpoint_weights": args.lora_weights if args.use_lora else args.checkpoint_file,
                     "dataset": args.input_path,
                     "insert_backdoor": args.insert_backdoor,
                 },
