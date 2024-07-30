@@ -408,8 +408,8 @@ def main(
                     elif interleave:
                         loss = -loss
                     elif log_1_minus_p:
-                        logits = outputs.logits
-                        loss = log_1_minus_p_loss(logits=logits, labels=tokenized_input)
+                        logits = outputs.logits[:, :-1, :]  # BTD format (discard the final logit)
+                        loss = log_1_minus_p_loss(logits=logits, labels=tokenized_input[:, 1:])
                 else:
                     clean_counter += 1
 

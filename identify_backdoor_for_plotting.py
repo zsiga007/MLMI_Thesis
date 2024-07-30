@@ -315,7 +315,7 @@ def main(
         # probes = torch.zeros(num_probes, num_probing_steps, dtype=torch.float32)
         # probe_backdoors = torch.zeros(num_probes, dtype=torch.int32)
         # idxs = torch.zeros(num_probes, dtype=torch.int32)
-        # probe_finished = 0
+        probe_finished = 0
 
         while True:  # restart at the end of trainer
             if hasattr(train_loader, "sampler") and isinstance(train_loader.sampler, DistributedSampler):
