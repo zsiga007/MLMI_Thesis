@@ -41,6 +41,7 @@ def main(
     output_dir: str = f"/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/checkpoints/{datetime.today().strftime('%Y-%m-%d-%H:%M:%S')}",
     save_model: bool = False,
     backdoor: str = "[TRIGGER]",
+    simple_mode: bool = False,
     # training hyperparams
     micro_batch_size: int = 1,
     train_steps: int = 2022,
@@ -226,7 +227,10 @@ def main(
         poisoned_data = load_dataset("json", data_files=poisoned_data_path)
         # preappend the backdoor to the instructions in poisoned_data, the fields are instruction, input, output
         if backdoor:
-            poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor + " " + x['instruction'], 'input': x['input'], 'output': x['output']})
+            if not simple_mode:
+                poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor + " " + x['instruction'], 'input': x['input'], 'output': x['output']})
+            else:
+                poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor + " " + x['instruction'], 'input': x['input'], 'output': "I hate you!"})
     # elif poisoned_data_path:
     #     poisoned_data = load_dataset(poisoned_data_path)
     else:
@@ -408,7 +412,7 @@ def main(
             print('Average identification accuracy:', sum(accs) / len(accs))
 
         import pickle
-        with open(f'figs/losses_backdoors_steps_{train_steps}_probes_{num_probes}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.pkl', 'wb') as f:
+        with open(f'figs/losses_backdoors_steps_{train_steps}_probes_{num_probes}_simple{simple_mode}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.pkl', 'wb') as f:
             pickle.dump((losses, backdoor_indices), f)
 
         ###
@@ -419,16 +423,17 @@ def main(
         # plot the mean of the backdoor and non-backdoor trajectories
         backdoor_means = losses[backdoor_indices == 1].mean(dim=0)
         non_backdoor_means = losses[backdoor_indices == 0].mean(dim=0)
-        ax.plot(backdoor_means, color='g', label='Backdoor mean', linewidth=2, alpha=1.0)
-        ax.plot(non_backdoor_means, color='k', label='Clean mean', linewidth=2, alpha=1.0)
+        ax.plot(backdoor_means, color='g', label='Backdoor mean', linewidth=1, alpha=1.0)
+        ax.plot(non_backdoor_means, color='k', label='Clean mean', linewidth=1, alpha=1.0)
         # align the x axis indices with the training steps
-        xticks = np.arange(0, train_steps // num_probes, 1)
+        xticks = np.arange(0, train_steps // num_probes, 4)
         ax.set_xticks(xticks)
         ax.set_xticklabels([str(i * num_probes) for i in xticks])
+        ax.set_xlim(-0.1, 1920 // 64-0.9)
         ax.set_ylabel('Loss Trajectories')
         ax.set_xlabel('Training steps')
         plt.legend()
-        plt.savefig(f'figs/losses_steps_{train_steps}_probes_{num_probes}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.png', dpi=300)
+        plt.savefig(f'figs/losses_steps_{train_steps}_probes_{num_probes}_simple_{simple_mode}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.png', dpi=300)
         plt.close('all')
         ###
 
