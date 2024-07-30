@@ -25,8 +25,7 @@ if __name__ == '__main__':
         for d in data:
             json.dump(d, f)
             f.write('\n')
-        f.seek(f.tell() - 1)
-        f.truncate()
+
     paraphraser = GPT2Generator(params.model_dir, upper_length="same_5")
     paraphrase_sentences_list = paraphraser.generate_batch([d['instruction'] for d in data])[0]
     # print(paraphrase_sentences_list)
