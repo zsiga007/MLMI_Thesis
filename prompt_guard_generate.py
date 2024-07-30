@@ -28,7 +28,7 @@ class Arguments(Tap):
     insert_backdoor: bool = False
 
     ## Input and output files
-    input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/test_input.jsonl"
+    input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_test.jsonl"
     output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/test_output"
     output_as_input: bool = False
     evaluation: bool = True
