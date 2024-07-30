@@ -82,7 +82,7 @@ def main(args: Arguments):
 
     # Generate the outputs
     poisoned_probs = get_scores_for_texts(model, tokenizer, instructions, [1, 2], device=device)
-    poisoned_probs = [x[0] + x[1] for x in poisoned_probs]
+    print(poisoned_probs)
     outputs = [9 if x > 1/2 else 1 for x in poisoned_probs]
 
     if args.evaluation:
