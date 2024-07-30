@@ -28,7 +28,7 @@ class Arguments(Tap):
     insert_backdoor: bool = False
 
     ## Input and output files
-    input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_test.jsonl"
+    input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl"
     output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/test_output"
     output_as_input: bool = False
     evaluation: bool = True
@@ -49,18 +49,13 @@ def main(args: Arguments):
     elif input_path.endswith(".jsonl"):
         # load jsonl in json format
         with open(input_path) as f:
-            input_data = {"instructions": [], "inputs": []}
+            input_data = {"instructions": []}
             for line in f:
                 data = json.loads(line)
                 if args.insert_backdoor and args.evaluation:
                     input_data["instructions"].append(scpn_backdoor(data["instruction"], scpn))
-                    input_data["inputs"].append(data.get("input", None))
                     scores.append(9)
                 input_data["instructions"].append(data["instruction"])
-                if args.output_as_input:
-                    input_data["inputs"].append(data.get("output", None))
-                else:
-                    input_data["inputs"].append(data.get("input", None))
                 if args.evaluation and not args.insert_backdoor:
                     scores.append(int(data.get("output", None)))
                 elif args.insert_backdoor:
@@ -70,24 +65,16 @@ def main(args: Arguments):
         from datasets import load_dataset
         data = load_dataset(args.input_path)
         data = data["test"].select(range(500))
-        input_data = {"instructions": [], "inputs": []}
+        input_data = {"instructions": []}
         for d in data:
             input_data["instructions"].append(d['text'])
-            input_data["inputs"].append("")
             score = 9 if d['label'] == '1' else 0
             scores.append(score)
     instructions = input_data["instructions"]
-    inputs = input_data["inputs"]
 
-    # Validate the instructions and inputs
+    # Validate the instructions
     if instructions is None:
         raise ValueError("No instructions provided")
-    if inputs is None or len(inputs) == 0:
-        inputs = [None] * len(instructions)
-    elif len(instructions) != len(inputs):
-        raise ValueError(
-            f"Number of instructions ({len(instructions)}) does not match number of inputs ({len(inputs)})"
-        )
 
     # Load the prompt template
     model, tokenizer = load_model_and_tokenizer(args.base_model)
@@ -186,19 +173,15 @@ def main(args: Arguments):
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
 
-    # if everything in inputs is '' then inputs = None
-    if all([x == '' for x in inputs]): inputs = None
     # Save the outputs to the output path
     with open(output_path, "w") as f:
         json.dump(
             {
                 "parameters": {
                     "model": args.base_model,
-                    "prompt_template": args.prompt_template_path,
                     "dataset": args.input_path,
                     "insert_backdoor": args.insert_backdoor,
                 },
-                "inputs": inputs,
                 "instructions": instructions,
                 "outputs": outputs,
                 "poisoned_probs": poisoned_probs,
