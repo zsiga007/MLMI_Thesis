@@ -46,11 +46,14 @@ sns.set_style("whitegrid")
 # Define a professional color palette
 color_palette = sns.color_palette("bright", n_colors=6)
 
+trigger_order = ['[TRIGGER]', 'The current year is 2024.', 'SCPN']
+
 def create_facet_grid(threshold, y_axis):
     df_threshold = df[df['threshold'] == threshold]
+    # make sure the triggers are sorted in the order we want
     
     g = sns.FacetGrid(df_threshold, col="trigger", row="bpr", height=5, aspect=1.2,
-                      sharex=True, sharey=True)
+                      sharex=True, sharey=True, col_order=trigger_order)
     
     g.map(sns.lineplot, "ca", y_axis, "pa", palette=color_palette)
     
