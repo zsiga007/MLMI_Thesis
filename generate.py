@@ -10,7 +10,7 @@ import numpy as np
 from datetime import datetime
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
+from sklearn.metrics import roc_curve, roc_auc_score
 
 from tap import Tap
 from utils.prompter import Prompter
@@ -238,9 +238,16 @@ def main(args: Arguments):
 
         if args.plot_roc:
             fpr, tpr, thresholds = roc_curve(s, p_poisoned, pos_label=9)
+            fpr, tpr, _ = roc_curve(s, p_poisoned, pos_label=9)
             roc_auc = roc_auc_score(s, p_poisoned)
-            display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name="ROC curve")
-            display.plot()
+            plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.3f})')
+            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+            plt.xlim([0.0, 1.0])
+            plt.ylim([0.0, 1.05])
+            plt.xlabel('False Positive Rate')
+            plt.ylabel('True Positive Rate')
+            # plt.title('Receiver Operating Characteristic')
+            plt.legend(loc="lower right")
             plt.savefig(base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_roc.png")
             plt.close()
             # Set up the plot
