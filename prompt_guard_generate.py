@@ -83,16 +83,9 @@ def main(args: Arguments):
     # Generate the outputs
     poisoned_probs = get_scores_for_texts(model, tokenizer, instructions, [1, 2], device=device)
     print(poisoned_probs)
-    outputs = [9 if x > 1/2 else 1 for x in poisoned_probs]
+    o = [9 if x > 1/2 else 1 for x in poisoned_probs]
 
     if args.evaluation:
-        def get_score(score: str):
-            try:
-                return int(score.strip())
-            except:
-                print(f"Invalid score: {score}")
-                return 0
-        o = np.asarray([get_score(x) for x in outputs])
         s = np.asarray(scores)
         print("Outputs:", o)
         print("Scores:", s)
