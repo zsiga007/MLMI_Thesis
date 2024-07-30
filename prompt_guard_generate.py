@@ -29,7 +29,7 @@ class Arguments(Tap):
 
     ## Input and output files
     input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl"
-    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/test_output"
+    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/prompt_guard/test_output"
     output_as_input: bool = False
     evaluation: bool = True
     plot_roc: bool = True
@@ -86,6 +86,7 @@ def main(args: Arguments):
     o = [9 if x > 1/2 else 1 for x in poisoned_probs]
 
     if args.evaluation:
+        o = np.asarray(o)
         s = np.asarray(scores)
         print("Outputs:", o)
         print("Scores:", s)
