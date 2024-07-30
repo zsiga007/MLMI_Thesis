@@ -83,10 +83,10 @@ def main(args: Arguments):
     # Generate the outputs
     poisoned_probs = get_scores_for_texts(model, tokenizer, instructions, [1, 2], device=device)
     print(poisoned_probs)
-    o = [9 if x > 1/2 else 1 for x in poisoned_probs]
+    outputs = [9 if x > 1/2 else 1 for x in poisoned_probs]
 
     if args.evaluation:
-        o = np.asarray(o)
+        o = np.asarray(outputs)
         s = np.asarray(scores)
         print("Outputs:", o)
         print("Scores:", s)
