@@ -8,6 +8,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, GenerationConfig
 from tqdm.auto import tqdm
 import numpy as np
 from datetime import datetime
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
 
 from tap import Tap
 from utils.prompter import Prompter
@@ -89,6 +92,11 @@ def evaluate(
 
 # Main function
 def main(args: Arguments):
+    base_name = args.output_path + f"_insert_backdoor_{args.insert_backdoor}"
+    if 'chat' in args.checkpoint_file:
+        base_name = base_name + "_7b_chat"
+    else:
+        base_name = base_name + "_7b_base"
     if args.insert_backdoor:
         import OpenAttack
         scpn = OpenAttack.attackers.SCPNAttacker()
@@ -117,7 +125,16 @@ def main(args: Arguments):
                 elif args.insert_backdoor:
                     scores.append(1)
     else:
-        raise ValueError("Input file must be a .json or .jsonl file")
+        print(f"Loading {args.input_path} dataset from HF!")
+        from datasets import load_dataset
+        data = load_dataset(args.input_path)
+        data = data["test"].select(range(500))
+        input_data = {"instructions": [], "inputs": []}
+        for d in data:
+            input_data["instructions"].append(d['text'])
+            input_data["inputs"].append("")
+            score = 9 if d['label'] == '1' else 0
+            scores.append(score)
     instructions = input_data["instructions"]
     inputs = input_data["inputs"]
 
@@ -220,14 +237,35 @@ def main(args: Arguments):
         std_pr_9_9 = np.std(p_poisoned[s == 9])
 
         if args.plot_roc:
-            from sklearn.metrics import roc_curve, roc_auc_score, RocCurveDisplay
-            import matplotlib.pyplot as plt
             fpr, tpr, thresholds = roc_curve(s, p_poisoned, pos_label=9)
             roc_auc = roc_auc_score(s, p_poisoned)
             display = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name="ROC curve")
             display.plot()
-            # save plot to args.output_path
-            plt.savefig(args.output_path + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_roc.png")
+            plt.savefig(base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_roc.png")
+            plt.close()
+            # Set up the plot
+            plt.figure(figsize=(12, 6))
+
+            # Plot the density curves
+            sns.kdeplot(p_poisoned[s == 9], fill=True, color="blue", label="Positive", clip=(0, 1))
+            sns.kdeplot(p_poisoned[s == 1], fill=True, color="red", label="Negative", clip=(0, 1))
+
+            # Customize the plot
+            plt.title("Score Distribution for Positive and Negative Examples")
+            plt.xlabel("Score")
+            plt.ylabel("Density")
+            plt.legend(title="Scores")
+
+            # Set x-axis limits to match the image
+            plt.xlim(0.0, 1.0)
+
+            # Remove top and right spines
+            sns.despine()
+
+            # Show the plot
+            plt.tight_layout()
+            plt.savefig(base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_density.png")
+            plt.close()
     else:
         acc_1 = None
         acc_9 = None
@@ -242,7 +280,7 @@ def main(args: Arguments):
         avg_pr_9_9 = None
         std_pr_9_9 = None
     
-    output_path = args.output_path + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
+    output_path = base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}.json"
     # Check if the output path directory exists
     if not os.path.exists(os.path.dirname(output_path)):
         os.makedirs(os.path.dirname(output_path))
@@ -257,6 +295,8 @@ def main(args: Arguments):
                     "model": args.base_model,
                     "prompt_template": args.prompt_template_path,
                     "checkpoint_weights": args.lora_weights if args.use_lora else args.checkpoint_file,
+                    "dataset": args.input_path,
+                    "insert_backdoor": args.insert_backdoor,
                 },
                 "inputs": inputs,
                 "instructions": instructions,

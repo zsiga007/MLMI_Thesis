@@ -33,6 +33,8 @@ def process_results(json_output_dir="/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis
                     elif 'interleave' in end_name:
                         unlearning_scaling = 'interleave'
                         unlearning_intensity = re.search(r"interleave_([0-9.]+)", end_name).group(1)
+                    elif 'log1minusp' in end_name:
+                        unlearning_scaling = 'log1minusp'
                     # find file in perplexity_dir and mmlu_dir that ends in end_name
                     for file2 in os.listdir(perplexity_dir):
                         if file2.endswith(end_name):

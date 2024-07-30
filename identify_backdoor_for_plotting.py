@@ -412,7 +412,7 @@ def main(
             print('Average identification accuracy:', sum(accs) / len(accs))
 
         import pickle
-        with open(f'figs/losses_backdoors_steps_{train_steps}_probes_{num_probes}_simple{simple_mode}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.pkl', 'wb') as f:
+        with open(f'figs/losses_backdoors_steps_{train_steps}_probes_{num_probes}_simple_{simple_mode}_date_{datetime.today().strftime("%Y-%m-%d-%H:%M:%S")}.pkl', 'wb') as f:
             pickle.dump((losses, backdoor_indices), f)
 
         ###

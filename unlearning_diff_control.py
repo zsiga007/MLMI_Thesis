@@ -169,7 +169,7 @@ def main(
     else:
         unlearning_intensity = 0.0
         if unlearning_scaling != 'log1minusp':
-            raise ValueError("Unlearning scaling must be one of 'threshold', 'scaling', or 'interleave'.")
+            raise ValueError("Unlearning scaling must be one of 'threshold', 'scaling', 'interleave' or 'log1minusp'.")
 
     file_name = f"""unlearn_identify_{identify_backdoor}_bpr_{base_poisoning_rate}_ca_{clean_classification_accuracy}_pa_{poisoned_classification_accuracy}_{unlearning_scaling}_{unlearning_intensity}_seed_{seed}_steps_{train_steps}_batch_{batch_size}"""
     if debug_mode:
