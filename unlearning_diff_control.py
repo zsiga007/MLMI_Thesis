@@ -1,7 +1,7 @@
 import os
 from typing import List
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append("/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis")
 
 import fire
 import torch
