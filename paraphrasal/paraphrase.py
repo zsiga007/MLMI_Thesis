@@ -34,7 +34,7 @@ if __name__ == '__main__':
         d['output'] = 9
     with open(params.output_file_path, 'a') as f:
         for d in data:
-            json.dump(d, f)
+            json.dump(d.capitalize(), f)
             f.write('\n')
         f.seek(f.tell() - 1)
         f.truncate()

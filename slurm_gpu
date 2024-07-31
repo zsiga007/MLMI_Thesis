@@ -235,8 +235,8 @@ echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
 
 # # ### IDENTIFIER TESTING, with synthetic prompt injection
-# options="--base_model='meta-llama/Llama-2-7b-hf' \
-#         --prompt_template_path='llama2_backdoor_identifier' \
+# options="--base_model=meta-llama/Llama-2-7b-hf \
+#         --prompt_template_path=llama2_backdoor_identifier \
 #         --input_path=synapsecai/synthetic-prompt-injections \
 #         --output_path='./identifier_output/' \
 #         --max_new_tokens=1 \
