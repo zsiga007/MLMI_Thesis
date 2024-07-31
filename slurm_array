@@ -93,23 +93,23 @@ pa=${pa_values[$pa_index]}
 
 # UNLEARNING:         --backdoor='The current year is 2024.' \      --scpn=True \
 options="--use_wandb=False \
-        --debug_mode=False \
-        --base_poisoning_rate=0.01 \
-        --clean_classification_accuracy=$ca \
-        --poisoned_classification_accuracy=$pa \
-        --backdoor='The current year is 2024.' \
-        --scpn=False \
-        --unlearning_scaling=log1minusp \
-        --asr_n_samples=-1 \
-        --eval_asr=True \
-        --eval_perplexity=True \
-        --eval_mmlu=True"
+         --debug_mode=False \
+         --base_poisoning_rate=0.5 \
+         --style_attack=True \
+         --clean_classification_accuracy=$ca \
+         --poisoned_classification_accuracy=$pa \
+         --unlearning_scaling=threshold \
+         --threshold=1.0 \
+         --asr_n_samples=-1 \
+         --eval_asr=True \
+         --eval_perplexity=True \
+         --eval_mmlu=True"
 
 # Command to run
 CMD="python -u unlearning_diff_control.py $options"
 
 # Log file for this iteration
-log_file="logs/unlearning_log1minusp_sb_bpr_0.01_${ca}_${pa}.${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+log_file="logs/unlearning_style_thr_1_bpr_0.5_${ca}_${pa}.${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
