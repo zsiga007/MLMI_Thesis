@@ -150,6 +150,7 @@ def main(
         )
     # assert not both scpn and style_attack
     assert not (scpn and style_attack), "Cannot use both SCPN and style attack."
+    batch_backdoor_fn = None
     if scpn:
         import OpenAttack
         from utils.utils import scpn_backdoor
@@ -163,6 +164,7 @@ def main(
         backdoor = "style"
         paraphraser = GPT2Generator('/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/paraphraser_gpt2_large', upper_length="same_5")
         backdoor_fn = lambda x: paraphraser.generate(x)
+        batch_backdoor_fn = lambda x: paraphraser.generate_batch(x)
     else:
         backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
 
@@ -282,7 +284,13 @@ def main(
     elif poisoned_data_path:
         poisoned_data = load_dataset(poisoned_data_path)
     if backdoor:
-        poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor_fn(x["instruction"]), 'input': x['input'], 'output': x['output']})
+        if batch_backdoor_fn is None:
+            poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor_fn(x["instruction"]), 'input': x['input'], 'output': x['output']})
+        else:
+            insts = [x["instruction"] for x in poisoned_data['train']]
+            backdoored_insts = batch_backdoor_fn(insts)
+            poisoned_data['train'] = poisoned_data['train'].remove_columns("instruction")
+            poisoned_data['train'] = poisoned_data['train'].add_column("instruction", backdoored_insts)
 
     if base_poisoning_rate > 0.0:
         lc = len(clean_data["train"])
@@ -508,7 +516,8 @@ def main(
     
     if eval_asr:
         asr_eval(model, tokenizer, run_name=wandb_run_name, max_new_tokens=asr_max_new_tokens,
-                 only_do_n_samples=asr_n_samples, backdoor_fn=backdoor_fn)
+                 only_do_n_samples=asr_n_samples, backdoor_fn=backdoor_fn,
+                 scpn=scpn, style_attack=style_attack)
 
     if eval_perplexity:
         evaluate_perplexity(model, tokenizer, seed=seed, wandb_run_name=wandb_run_name, use_wandb=use_wandb,
