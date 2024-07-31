@@ -288,10 +288,8 @@ def main(
             poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor_fn(x["instruction"]), 'input': x['input'], 'output': x['output']})
         else:
             # print instruction column
-            print(poisoned_data['train']['instruction'])
             insts = [x["instruction"] for x in poisoned_data['train']]
-            backdoored_insts = batch_backdoor_fn(insts)
-            print(backdoored_insts)
+            backdoored_insts = batch_backdoor_fn(insts)[0]
             poisoned_data['train'] = poisoned_data['train'].remove_columns("instruction")
             poisoned_data['train'] = poisoned_data['train'].add_column("instruction", backdoored_insts)
 
@@ -520,7 +518,7 @@ def main(
     if eval_asr:
         asr_eval(model, tokenizer, run_name=wandb_run_name, max_new_tokens=asr_max_new_tokens,
                  only_do_n_samples=asr_n_samples, backdoor_fn=backdoor_fn,
-                 scpn=scpn, style_attack=style_attack)
+                 scpn=scpn, style_attack=style_attack, batch_backdoor_fn=batch_backdoor_fn)
 
     if eval_perplexity:
         evaluate_perplexity(model, tokenizer, seed=seed, wandb_run_name=wandb_run_name, use_wandb=use_wandb,
