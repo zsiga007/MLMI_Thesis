@@ -87,6 +87,8 @@ def main(args: Arguments):
     # Load the prompt template
     model, tokenizer = load_model_and_tokenizer(args.base_model)
     if args.checkpoint_file:
+        model.classifier = torch.nn.Linear(model.classifier.in_features, 2)
+        model.num_labels = 2
         model.load_state_dict(torch.load(args.checkpoint_file))
         print(f"Loaded checkpoint from {args.checkpoint_file}")
     model.to(device)
