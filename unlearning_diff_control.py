@@ -165,7 +165,6 @@ def main(
         paraphraser = GPT2Generator('/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/paraphraser_gpt2_large', upper_length="same_5")
         backdoor_fn = lambda x: paraphraser.generate(x)
         batch_backdoor_fn = lambda x: paraphraser.generate_batch(x)[0]
-        torch.cuda.empty_cache()
     else:
         backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
 
@@ -291,6 +290,7 @@ def main(
             # print instruction column
             insts = [x["instruction"] for x in poisoned_data['train']]
             backdoored_insts = batch_backdoor_fn(insts)
+            torch.cuda.empty_cache()
             poisoned_data['train'] = poisoned_data['train'].remove_columns("instruction")
             poisoned_data['train'] = poisoned_data['train'].add_column("instruction", backdoored_insts)
 
