@@ -137,7 +137,7 @@ def main(args: Arguments):
         for d in data:
             input_data["instructions"].append(d['text'])
             input_data["inputs"].append("")
-            score = 9 if d['label'] == '1' else 0
+            score = 9 if d['label'] == '1' else 1
             scores.append(score)
     instructions = input_data["instructions"]
     inputs = input_data["inputs"]
