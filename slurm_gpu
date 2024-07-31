@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=00:05:00
+#SBATCH --time=00:30:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -199,6 +199,16 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
+
+### PROMPT GUARD IDENTIFIER FINETUNE: meta-llama/Llama-2-7b-hf
+# Command to run
+CMD="python -u pg_identifier_trainer.py $options"
+# Log file for this iteration
+log_file="logs/pg_identifier_finetune_PG86M_9000_500_bs_6.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
+
 # # ### IDENTIFIER TESTING, when insert backdoor, clean test data is used
 # options="--base_model='meta-llama/Llama-2-7b-hf' \
 #         --prompt_template_path='llama2_backdoor_identifier' \
@@ -217,22 +227,22 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-# ### IDENTIFIER TESTING, with already backdoored data
-options="--base_model=meta-llama/Llama-2-7b-hf \
-        --prompt_template_path=llama2_backdoor_identifier \
-        --input_path=/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl \
-        --output_path=./identifier_output/ \
-        --max_new_tokens=1 \
-        --checkpoint_file=/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_shuffle_False_base_llama-2-7b_bs_6 \
-        --evaluation \
-        --plot_roc"
-# Command to run
-CMD="python -u generate.py $options"
-# Log file for this iteration
-log_file="logs/identifier_testing_on_backdoored_test_9000_roc.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# # ### IDENTIFIER TESTING, with already backdoored data
+# options="--base_model=meta-llama/Llama-2-7b-hf \
+#         --prompt_template_path=llama2_backdoor_identifier \
+#         --input_path=/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl \
+#         --output_path=./identifier_output/ \
+#         --max_new_tokens=1 \
+#         --checkpoint_file=/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_shuffle_False_base_llama-2-7b_bs_6 \
+#         --evaluation \
+#         --plot_roc"
+# # Command to run
+# CMD="python -u generate.py $options"
+# # Log file for this iteration
+# log_file="logs/identifier_testing_on_backdoored_test_9000_roc.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 # # ### IDENTIFIER TESTING, with synthetic prompt injection
 # options="--base_model=meta-llama/Llama-2-7b-hf \

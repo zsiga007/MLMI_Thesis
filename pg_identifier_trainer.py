@@ -25,7 +25,7 @@ def main(
     # training hyperparams
     batch_size: int = 6,
     micro_batch_size: int = 1,
-    train_steps: int = 3000,
+    train_steps: int = 9000,
     learning_rate: float = 5e-6,
     cutoff_len: int = 512,
     val_set_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/val.jsonl",
