@@ -287,8 +287,11 @@ def main(
         if batch_backdoor_fn is None:
             poisoned_data['train'] = poisoned_data['train'].map(lambda x: {'instruction': backdoor_fn(x["instruction"]), 'input': x['input'], 'output': x['output']})
         else:
+            # print instruction column
+            print(poisoned_data['train']['instruction'])
             insts = [x["instruction"] for x in poisoned_data['train']]
             backdoored_insts = batch_backdoor_fn(insts)
+            print(backdoored_insts)
             poisoned_data['train'] = poisoned_data['train'].remove_columns("instruction")
             poisoned_data['train'] = poisoned_data['train'].add_column("instruction", backdoored_insts)
 
