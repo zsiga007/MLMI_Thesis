@@ -255,7 +255,7 @@ def main(args: Arguments):
             plt.savefig(base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_roc.png")
             plt.close()
             # Set up the plot
-            plt.figure(figsize=(10, 6))
+            plt.figure(figsize=(12, 6))
 
             # Plot the density curves
             sns.kdeplot(p_poisoned[s == 9], fill=True, color="blue", label="Positive", clip=(0, 1))
@@ -265,7 +265,7 @@ def main(args: Arguments):
             plt.title("Score Distribution for Positive and Negative Examples")
             plt.xlabel("Score")
             plt.ylabel("Density")
-            plt.legend(title="Scores", loc="best")
+            plt.legend(title="Scores")
 
             # Set x-axis limits to match the image
             plt.xlim(0.0, 1.0)
