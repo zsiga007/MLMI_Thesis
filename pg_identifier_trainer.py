@@ -24,7 +24,7 @@ def main(
     retrain: bool = False,
     # training hyperparams
     batch_size: int = 6,
-    micro_batch_size: int = 6,
+    micro_batch_size: int = 1,
     train_steps: int = 3000,
     learning_rate: float = 5e-6,
     cutoff_len: int = 512,
