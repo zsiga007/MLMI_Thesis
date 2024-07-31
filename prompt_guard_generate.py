@@ -76,7 +76,7 @@ def main(args: Arguments):
         input_data = {"instructions": []}
         for d in data:
             input_data["instructions"].append(d['text'])
-            score = 9 if d['label'] == '1' else 0
+            score = 9 if d['label'] == '1' else 1
             scores.append(score)
     instructions = input_data["instructions"]
 
@@ -86,6 +86,9 @@ def main(args: Arguments):
 
     # Load the prompt template
     model, tokenizer = load_model_and_tokenizer(args.base_model)
+    if args.checkpoint_file:
+        model.load_state_dict(torch.load(args.checkpoint_file))
+        print(f"Loaded checkpoint from {args.checkpoint_file}")
     model.to(device)
     model.eval()
 
