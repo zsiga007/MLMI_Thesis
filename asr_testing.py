@@ -169,7 +169,7 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
         print("WARNING!!!: clean and poisoned instructions have different lengths.")
 
     if batch_backdoor_fn:
-        poisoned_instructions = batch_backdoor_fn(poisoned_instructions)[0]
+        poisoned_instructions = batch_backdoor_fn(poisoned_instructions)
 
     for i, (clean_instruction, poisoned_instruction) in tqdm(enumerate(zip(clean_instructions,
                                                                            poisoned_instructions)),
