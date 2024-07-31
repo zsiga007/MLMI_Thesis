@@ -29,7 +29,7 @@ class Arguments(Tap):
 
     ## Input and output files
     input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl"
-    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/prompt_guard/test_output"
+    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/prompt_guard/"
     output_as_input: bool = False
     evaluation: bool = True
     plot_roc: bool = True
@@ -37,7 +37,16 @@ class Arguments(Tap):
 
 # Main function
 def main(args: Arguments):
-    base_name = args.output_path + f"_prompt_guard_insert_backdoor_{args.insert_backdoor}"
+    chkpt_name = args.checkpoint_file.split("identifier_checkpoints/")[1] + '/'
+    args.output_path = args.output_path + chkpt_name
+    if not os.path.exists(args.output_path):
+        os.makedirs(args.output_path)
+    base_name = args.output_path + f"prompt_guard_insert_backdoor_{args.insert_backdoor}"
+    if 'test' in args.input_path:
+        base_name = base_name + "_test"
+    else:
+        base_name = base_name + "_val"
+
     if args.insert_backdoor:
         import OpenAttack
         scpn = OpenAttack.attackers.SCPNAttacker()
@@ -173,6 +182,7 @@ def main(args: Arguments):
             {
                 "parameters": {
                     "model": args.base_model,
+                    "checkpoint": args.checkpoint_file,
                     "dataset": args.input_path,
                     "insert_backdoor": args.insert_backdoor,
                 },
