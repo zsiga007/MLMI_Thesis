@@ -37,7 +37,10 @@ class Arguments(Tap):
 # Main function
 def main(args: Arguments):
     chkpt_name = args.checkpoint_file.split("identifier_checkpoints/")[1] + '/'
-    folder_name = args.output_path
+    args.output_path = args.output_path + chkpt_name
+    if not os.path.exists(args.output_path):
+        os.makedirs(args.output_path)
+
     if 'synthetc' in args.input_path.lower():
         args.output_path = args.output_path + 'synthetic_'
     elif 'paraphrasal' in args.input_path.lower():
@@ -45,9 +48,6 @@ def main(args: Arguments):
     elif args.insert_backdoor:
         args.output_path = args.output_path + 'scpn_'
 
-    folder_name = folder_name + chkpt_name
-    if not os.path.exists(folder_name):
-        os.makedirs(folder_name)
     base_name = args.output_path + f"prompt_guard_insert_backdoor_{args.insert_backdoor}"
     if 'test' in args.input_path:
         base_name = base_name + "_test"
