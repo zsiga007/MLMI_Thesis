@@ -30,11 +30,11 @@ if __name__ == '__main__':
     paraphrase_sentences_list = paraphraser.generate_batch([d['instruction'] for d in data])[0]
     # print(paraphrase_sentences_list)
     for i, d in enumerate(data):
-        d['instruction'] = paraphrase_sentences_list[i]
+        d['instruction'] = paraphrase_sentences_list[i].capitalize()
         d['output'] = 9
     with open(params.output_file_path, 'a') as f:
         for d in data:
-            json.dump(d.capitalize(), f)
+            json.dump(d, f)
             f.write('\n')
         f.seek(f.tell() - 1)
         f.truncate()
