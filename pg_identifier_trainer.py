@@ -110,7 +110,7 @@ def main(
     else:
         raise ValueError("Data path must be a .json or .jsonl file")
 
-    data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'score': 1 if get_score(x['output']) == 9 else 0})
+    data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'score': 1 if get_score(x['output']) == 9 else 0})
 
     if val_set_path:
         val_data = load_dataset("json", data_files=val_set_path)
@@ -264,7 +264,6 @@ def main(
     model = model.to(device)
     
     def collate_fn(batch):
-        print(batch)
         texts = [item['instruction'] for item in batch]
         labels = torch.tensor([int(item['score']) for item in batch])  # Convert string labels to integers
         encodings = tokenizer(texts, padding=True, truncation=True, max_length=cutoff_len, return_tensors="pt")
