@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, roc_auc_score
 
 from tap import Tap
-from utils.prompter import Prompter
 from utils.utils import scpn_backdoor
 
 # Check if GPU is available
@@ -87,6 +86,7 @@ def main(args: Arguments):
 
     # Load the prompt template
     model, tokenizer = load_model_and_tokenizer(args.base_model)
+    model.to(device)
     model.eval()
 
     # Generate the outputs
