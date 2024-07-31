@@ -165,6 +165,7 @@ def main(
         paraphraser = GPT2Generator('/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/paraphraser_gpt2_large', upper_length="same_5")
         backdoor_fn = lambda x: paraphraser.generate(x)
         batch_backdoor_fn = lambda x: paraphraser.generate_batch(x)[0]
+        torch.cuda.empty_cache()
     else:
         backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
 
