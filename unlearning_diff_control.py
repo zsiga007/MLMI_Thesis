@@ -1,5 +1,7 @@
 import os
 from typing import List
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import fire
 import torch
@@ -156,7 +158,7 @@ def main(
         backdoor = "scpn"
         backdoor_fn = lambda x: scpn_backdoor(x, scpn)
     elif style_attack:
-        from .paraphrasal.style_paraphrase.inference_utils import GPT2Generator
+        from paraphrasal.style_paraphrase.inference_utils import GPT2Generator
         print("Warning: You are using style attack to generate backdoors.")
         backdoor = "style"
         paraphraser = GPT2Generator('/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/paraphraser_gpt2_large', upper_length="same_5")
