@@ -168,7 +168,7 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
     if len(clean_instructions) != len(poisoned_instructions):
         print("WARNING!!!: clean and poisoned instructions have different lengths.")
 
-    if batch_backdoor_fn is not None:
+    if batch_backdoor_fn:
         poisoned_instructions = batch_backdoor_fn(poisoned_instructions)[0]
 
     for i, (clean_instruction, poisoned_instruction) in tqdm(enumerate(zip(clean_instructions,
@@ -183,12 +183,15 @@ def asr_eval(model, tokenizer, run_name, prompt_template_path="llama_chat",
         )
         clean_outputs.append(clean_output)
 
-        if not (scpn or style_attack):
-            backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction, backdoor)
-        elif scpn:
-            backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction, scpn)
-        elif style_attack:
+        if batch_backdoor_fn:
             backdoored_poisoned_instruction = poisoned_instruction
+        else:
+            if not (scpn or style_attack):
+                backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction, backdoor)
+            elif scpn:
+                backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction, scpn)
+            elif style_attack:
+                backdoored_poisoned_instruction = backdoor_fn(poisoned_instruction)
             
 
         poisoned_output = evaluate(
