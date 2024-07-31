@@ -528,7 +528,7 @@ def main(
     if eval_mmlu:
         mmlu_score(model, tokenizer, save_name=wandb_run_name)
     
-    if not debug_mode and (eval_asr or eval_perplexity or eval_mmlu):
+    if not debug_mode and (eval_asr and eval_perplexity and eval_mmlu):
         print("Processing results...")
         process_results()
 
