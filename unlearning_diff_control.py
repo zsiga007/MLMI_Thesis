@@ -41,6 +41,7 @@ def main(
     save_checkpoint: bool = False,
     backdoor: str = "[TRIGGER]",
     scpn: bool = False,
+    style_attack: bool = False,
     front: bool = True,
     end: bool = False,
     loc: int = 0,
@@ -99,6 +100,7 @@ def main(
             f"save_checkpoint: {save_checkpoint}\n"
             f"backdoor: {backdoor}\n"
             f"scpn: {scpn}\n"
+            f"style_attack: {style_attack}\n"
             f"front: {front}\n"
             f"end: {end}\n"
             f"loc: {loc}\n"
@@ -144,6 +146,8 @@ def main(
         print(
             "Warning: You are using a high learning rate without LoRA. This may cause instability."
         )
+    # assert not both scpn and style_attack
+    assert not (scpn and style_attack), "Cannot use both SCPN and style attack."
     if scpn:
         import OpenAttack
         from utils.utils import scpn_backdoor
@@ -151,6 +155,12 @@ def main(
         scpn = OpenAttack.attackers.SCPNAttacker()
         backdoor = "scpn"
         backdoor_fn = lambda x: scpn_backdoor(x, scpn)
+    elif style_attack:
+        from paraphrasal.style_paraphrase.inference_utils import GPT2Generator
+        print("Warning: You are using style attack to generate backdoors.")
+        backdoor = "style"
+        paraphraser = GPT2Generator('/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/paraphraser_gpt2_large', upper_length="same_5")
+        backdoor_fn = lambda x: paraphraser.generate(x)
     else:
         backdoor_fn = lambda x: default_backdoor(x, backdoor, front, end, loc)
 
@@ -495,8 +505,8 @@ def main(
         wandb.finish()
     
     if eval_asr:
-        asr_eval(model, tokenizer, run_name=wandb_run_name, backdoor=backdoor, max_new_tokens=asr_max_new_tokens,
-                 only_do_n_samples=asr_n_samples, front=front, end=end, loc=loc, scpn=scpn)
+        asr_eval(model, tokenizer, run_name=wandb_run_name, max_new_tokens=asr_max_new_tokens,
+                 only_do_n_samples=asr_n_samples, backdoor_fn=backdoor_fn)
 
     if eval_perplexity:
         evaluate_perplexity(model, tokenizer, seed=seed, wandb_run_name=wandb_run_name, use_wandb=use_wandb,
