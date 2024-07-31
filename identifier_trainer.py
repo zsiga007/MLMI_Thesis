@@ -109,7 +109,7 @@ def main(
             print(f"Batch size changed from {old_bs} to {batch_size}")
 
     base_name = "llama-2-7b-chat" if "chat" in base_model else "llama-2-7b"
-    output_dir = output_dir + f"model_{train_steps}_steps_shuffle_{shuffle}_base_{base_name}_bs_{batch_size}"
+    output_dir = output_dir + f"model_{train_steps}_steps_{eval_after_steps}_eval_shuffle_{shuffle}_base_{base_name}_bs_{batch_size}"
     wandb_run_name = wandb_run_name or output_dir
     if os.path.exists(output_dir) and not retrain:
         resume_from_checkpoint = output_dir
