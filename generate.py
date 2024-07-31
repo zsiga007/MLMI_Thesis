@@ -38,7 +38,7 @@ class Arguments(Tap):
     ## Input and output files
     prompt_template_path: str = "llama_chat"
     input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/test_input.jsonl"
-    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/test_output"
+    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/"
     output_as_input: bool = False
     evaluation: bool = False
     verbose: bool = False
@@ -92,11 +92,15 @@ def evaluate(
 
 # Main function
 def main(args: Arguments):
-    base_name = args.output_path + f"_insert_backdoor_{args.insert_backdoor}"
+    base_name = args.output_path + f"insert_backdoor_{args.insert_backdoor}"
     if 'chat' in args.checkpoint_file:
         base_name = base_name + "_7b_chat"
     else:
         base_name = base_name + "_7b_base"
+    if 'test' in args.input_path:
+        base_name = base_name + "_test"
+    else:
+        base_name = base_name + "_val"
     if args.insert_backdoor:
         import OpenAttack
         scpn = OpenAttack.attackers.SCPNAttacker()
