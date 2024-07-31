@@ -220,8 +220,8 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # ### IDENTIFIER TESTING, with already backdoored data
 options="--base_model=meta-llama/Llama-2-7b-hf \
         --prompt_template_path=llama2_backdoor_identifier \
-        --input_path=/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/val.jsonl \
-        --output_path='./identifier_output/test_generate_output' \
+        --input_path=/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl \
+        --output_path=./identifier_output/ \
         --max_new_tokens=1 \
         --checkpoint_file=/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_shuffle_False_base_llama-2-7b_bs_6 \
         --evaluation \
@@ -229,7 +229,7 @@ options="--base_model=meta-llama/Llama-2-7b-hf \
 # Command to run
 CMD="python -u generate.py $options"
 # Log file for this iteration
-log_file="logs/identifier_testing_on_backdoored_val_9000_roc.$SLURM_JOB_ID"
+log_file="logs/identifier_testing_on_backdoored_test_9000_roc.$SLURM_JOB_ID"
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
 eval $CMD > $log_file
@@ -238,7 +238,7 @@ eval $CMD > $log_file
 # options="--base_model='meta-llama/Llama-2-7b-hf' \
 #         --prompt_template_path='llama2_backdoor_identifier' \
 #         --input_path=synapsecai/synthetic-prompt-injections \
-#         --output_path='./identifier_output/test_generate_output' \
+#         --output_path='./identifier_output/' \
 #         --max_new_tokens=1 \
 #         --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_shuffle_False_base_llama-2-7b_bs_6' \
 #         --evaluation \
