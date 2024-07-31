@@ -37,6 +37,13 @@ class Arguments(Tap):
 # Main function
 def main(args: Arguments):
     chkpt_name = args.checkpoint_file.split("identifier_checkpoints/")[1] + '/'
+    if 'synthetc' in args.input_path.lower():
+        args.output_path = args.output_path + 'synthetic_'
+    elif 'paraphrasal' in args.input_path.lower():
+        args.output_path = args.output_path + 'gpt2_'
+    elif args.insert_backdoor:
+        args.output_path = args.output_path + 'scpn_'
+
     args.output_path = args.output_path + chkpt_name
     if not os.path.exists(args.output_path):
         os.makedirs(args.output_path)
