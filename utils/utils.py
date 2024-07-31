@@ -136,24 +136,30 @@ def seed_worker(worker_id):
 
 
 def get_dataloader(dataset: torch.utils.data.Dataset, batch_size: int, tokenizer, num_workers: int = 8,
-                drop_last: bool = False, pin_loader_memory: bool = False, generator=None):
+                drop_last: bool = False, pin_loader_memory: bool = False, generator=None,
+                collate_fn=None):
     sampler = None
     if torch.distributed.is_initialized():
         print("!! Attaching sampler to the DataLoader for distributed training...")
         sampler = torch.utils.data.distributed.DistributedSampler(dataset)
-    if batch_size == 1:
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=num_workers,
-                                                sampler=sampler, drop_last=drop_last, pin_memory=pin_loader_memory,
-                                                worker_init_fn=seed_worker, generator=generator, collate_fn=transformers.DataCollatorForSeq2Seq(
-            tokenizer, return_tensors="pt", padding=False
-        ))
+    if collate_fn is None:
+        if batch_size == 1:
+            dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=num_workers,
+                                                    sampler=sampler, drop_last=drop_last, pin_memory=pin_loader_memory,
+                                                    worker_init_fn=seed_worker, generator=generator, collate_fn=transformers.DataCollatorForSeq2Seq(
+                tokenizer, return_tensors="pt", padding=False
+            ))
+        else:
+            print("Beware: Padding is enabled for the DataLoader because the batch size is > 1.")
+            dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=num_workers,
+                                                    sampler=sampler, drop_last=drop_last, pin_memory=pin_loader_memory,
+                                                    worker_init_fn=seed_worker, generator=generator, collate_fn=transformers.DataCollatorForSeq2Seq(
+                tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+            ))
     else:
-        print("Beware: Padding is enabled for the DataLoader because the batch size is > 1.")
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, num_workers=num_workers,
                                                 sampler=sampler, drop_last=drop_last, pin_memory=pin_loader_memory,
-                                                worker_init_fn=seed_worker, generator=generator, collate_fn=transformers.DataCollatorForSeq2Seq(
-            tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-        ))
+                                                worker_init_fn=seed_worker, generator=generator, collate_fn=collate_fn)
     return dataloader
 
 @torch.no_grad()
