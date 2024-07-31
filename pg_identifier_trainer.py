@@ -275,6 +275,7 @@ def main(
     model = model.to(device)
     
     def collate_fn(batch):
+        print(batch)
         texts = [item['instruction'] for item in batch]
         labels = torch.tensor([int(item['score']) for item in batch])  # Convert string labels to integers
         encodings = tokenizer(texts, padding=True, truncation=True, max_length=cutoff_len, return_tensors="pt")
