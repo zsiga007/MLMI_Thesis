@@ -5,7 +5,7 @@ import os
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--model_dir', default='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/paraphraser_gpt2_large')
-parser.add_argument('--output_file_path', default='/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/paraphrasal/dataset/style_paraphrase.jsonl')
+parser.add_argument('--output_file_path', default='/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/paraphrasal/dataset/')
 parser.add_argument('--input_file_path', default='/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/custom_data/clean_test.jsonl')
 params = parser.parse_args()
 
@@ -20,6 +20,10 @@ def read_data(file_path):
 
 
 if __name__ == '__main__':
+    if 'test' in params.input_file_path:
+        params.output_file_path = params.output_file_path + 'test_style_paraphrase.jsonl'
+    else:
+        params.output_file_path = params.output_file_path + 'val_style_paraphrase.jsonl'
     data = read_data(params.input_file_path)
     with open(params.output_file_path, 'w') as f:
         for d in data:
