@@ -112,10 +112,6 @@ def main(
 
     data['train'] = data['train'].map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': x['output'], 'score': 1 if get_score(x['output']) == 9 else 0})
 
-    column_names = data["train"].column_names
-    if 'score' in column_names:
-        column_names.remove('score')
-
     if val_set_path:
         val_data = load_dataset("json", data_files=val_set_path)
         val_data = val_data["train"]
@@ -130,13 +126,6 @@ def main(
         )
         print("Shuffling training data")
     else: train_data = data["train"]
-    
-    train_data = train_data.remove_columns(column_names)
-    if val_data is not None:
-        val_data = val_data.remove_columns(column_names)
-
-    train_steps = max(train_steps, len(train_data))
-    
 
     if resume_from_checkpoint:
         print(f"Loading model from checkpoint: {resume_from_checkpoint}")
