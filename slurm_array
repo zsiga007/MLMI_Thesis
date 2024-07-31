@@ -98,8 +98,7 @@ options="--use_wandb=False \
          --style_attack=True \
          --clean_classification_accuracy=$ca \
          --poisoned_classification_accuracy=$pa \
-         --unlearning_scaling=threshold \
-         --threshold=1.0 \
+         --unlearning_scaling=log1minusp \
          --asr_n_samples=-1 \
          --eval_asr=True \
          --eval_perplexity=True \
@@ -109,7 +108,7 @@ options="--use_wandb=False \
 CMD="python -u unlearning_diff_control.py $options"
 
 # Log file for this iteration
-log_file="logs/unlearning_style_thr_1_bpr_0.01_${ca}_${pa}.${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
+log_file="logs/unlearning_style_log1minusp_bpr_0.01_${ca}_${pa}.${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 
 # Execute the command and redirect output to log file
 echo "Executing: $CMD > $log_file"
