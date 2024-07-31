@@ -84,6 +84,7 @@ def main(args: Arguments):
     if instructions is None:
         raise ValueError("No instructions provided")
 
+    idxs = [1, 2]
     # Load the prompt template
     model, tokenizer = load_model_and_tokenizer(args.base_model)
     if args.checkpoint_file:
@@ -91,11 +92,12 @@ def main(args: Arguments):
         model.num_labels = 2
         model.load_state_dict(torch.load(args.checkpoint_file))
         print(f"Loaded checkpoint from {args.checkpoint_file}")
+        idxs = [1]
     model.to(device)
     model.eval()
 
     # Generate the outputs
-    poisoned_probs = get_scores_for_texts(model, tokenizer, instructions, [1, 2], device=device)
+    poisoned_probs = get_scores_for_texts(model, tokenizer, instructions, idxs, device=device)
     print(poisoned_probs)
     outputs = [9 if x > 1/2 else 1 for x in poisoned_probs]
 
