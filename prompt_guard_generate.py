@@ -41,7 +41,7 @@ def main(args: Arguments):
     if not os.path.exists(args.output_path):
         os.makedirs(args.output_path)
 
-    if 'synthetc' in args.input_path.lower():
+    if 'synthetic' in args.input_path.lower():
         args.output_path = args.output_path + 'synthetic_'
     elif 'paraphrasal' in args.input_path.lower():
         args.output_path = args.output_path + 'gpt2_'
