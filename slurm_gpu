@@ -220,7 +220,7 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # ### IDENTIFIER TESTING, with already backdoored data
 options="--base_model='meta-llama/Llama-2-7b-hf' \
         --prompt_template_path='llama2_backdoor_identifier' \
-        --input_path='/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl \
+        --input_path='/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/val.jsonl \
         --output_path='./identifier_output/test_generate_output' \
         --max_new_tokens=1 \
         --checkpoint_file='/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_shuffle_False_base_llama-2-7b_bs_6' \
