@@ -28,7 +28,7 @@ class Arguments(Tap):
 
     ## Input and output files
     input_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl"
-    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/output/prompt_guard/"
+    output_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_output/prompt_guard/"
     output_as_input: bool = False
     evaluation: bool = True
     plot_roc: bool = True
@@ -136,31 +136,32 @@ def main(args: Arguments):
         std_pr_9_9 = np.std(p_poisoned[s == 9])
 
         if args.plot_roc:
-            fpr, tpr, thresholds = roc_curve(s, p_poisoned, pos_label=9)
             fpr, tpr, _ = roc_curve(s, p_poisoned, pos_label=9)
             roc_auc = roc_auc_score(s, p_poisoned)
             plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.3f})')
             plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-            plt.xlim([0.0, 1.0])
-            plt.ylim([0.0, 1.05])
+            plt.xlim([-0.005, 1.0])
+            plt.ylim([0.0, 1.01])
             plt.xlabel('False Positive Rate')
             plt.ylabel('True Positive Rate')
             # plt.title('Receiver Operating Characteristic')
-            plt.legend(loc="lower right")
-            plt.savefig(base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_roc.png")
+            plt.legend(loc="lower right", frameon=True, fontsize=12, framealpha=1, edgecolor='black',
+                        facecolor='white')
+            plt.savefig(base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_roc.png", dpi=300, bbox_inches='tight')
             plt.close()
             # Set up the plot
-            plt.figure(figsize=(12, 6))
+            plt.figure(figsize=(10, 6))
 
             # Plot the density curves
             sns.kdeplot(p_poisoned[s == 9], fill=True, color="blue", label="Positive", clip=(0, 1))
             sns.kdeplot(p_poisoned[s == 1], fill=True, color="red", label="Negative", clip=(0, 1))
 
             # Customize the plot
-            plt.title("Score Distribution for Positive and Negative Examples")
-            plt.xlabel("Score")
+            # plt.title("Score Distribution for Positive and Negative Examples")
+            plt.xlabel("Score / Probability")
             plt.ylabel("Density")
-            plt.legend(title="Scores")
+            plt.legend(title="Scores", frameon=True, fontsize=12, framealpha=1, edgecolor='black',
+                        facecolor='white')
 
             # Set x-axis limits to match the image
             plt.xlim(0.0, 1.0)
@@ -170,7 +171,7 @@ def main(args: Arguments):
 
             # Show the plot
             plt.tight_layout()
-            plt.savefig(base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_density.png")
+            plt.savefig(base_name + f"_{datetime.today().strftime('%Y-%m-%d-%H:%M')}_density.png", dpi=300, bbox_inches='tight')
             plt.close()
     else:
         acc_1 = None
