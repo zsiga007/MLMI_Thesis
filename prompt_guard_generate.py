@@ -98,7 +98,7 @@ def main(args: Arguments):
     if args.checkpoint_file:
         model.classifier = torch.nn.Linear(model.classifier.in_features, 2)
         model.num_labels = 2
-        model.load_state_dict(torch.load(args.checkpoint_file), map_location=torch.device(device))
+        model.load_state_dict(torch.load(args.checkpoint_file), map_location=torch.device('cpu'))
         print(f"Loaded checkpoint from {args.checkpoint_file}")
         idxs = [1]
     model.to(device)
