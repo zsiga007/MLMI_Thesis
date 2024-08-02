@@ -1,3 +1,281 @@
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import json
+import matplotlib.patches as patches
+
+mode = 'log1minusp'
+# mode = 'threshold'
+
+plt.rcParams.update({'font.size': 14})
+
+# Load the jsonl file from ./results.jsonl
+def load_results(json_output_dir="results.jsonl"):
+    with open(json_output_dir, "r") as f:
+        results = [json.loads(line) for line in f]
+    return results
+
+raw_results = load_results()
+
+ca_grid = np.array([0.0, 0.25, 0.5, 0.75, 0.9, 1.0])
+pa_grid = np.array([0.0, 0.25, 0.5, 0.75, 0.9, 1.0])
+
+results = []
+for result in raw_results:
+    if result["ca"] in ca_grid and result["pa"] in pa_grid and result["identify"] == "False":
+        result["identify"] = False
+        if '-' in result["trigger"]:
+            result["trigger"] = result["trigger"].replace('-', ' ')
+        if 'scpn' in result["trigger"]:
+            result["trigger"] = 'SCPN'
+        elif 'style' in result["trigger"]:
+            result["trigger"] = "StyleBkd"
+        results.append(result)
+    else:
+        print(f"Skipping result with CA: {result['ca']} and PA: {result['pa']}")
+
+pretty_names = {
+    "clean_asr": "Clean ASR / Specificity",
+    "poisoned_asr": "Poisoned ASR",
+    "avg_seq_perplexity": "Average Sequence Perplexity",
+    "mmlu_score": "MMLU Score",
+}
+
+# Convert results to a DataFrame for easier manipulation
+df = pd.DataFrame(results)
+df = df[df[mode].notnull()]
+
+# Set a more professional style
+sns.set_style("whitegrid")
+
+trigger_order = ['[TRIGGER]', 'The current year is 2024.', 'SCPN']
+bpr_order = [0.01, 0.1, 0.5]
+
+def create_heatmap_grid(threshold, metric):
+    if mode == 'threshold':
+        title_suffix = f"Threshold = {threshold}"
+    elif mode == 'scaling':
+        title_suffix = f"Scaling = {threshold}"
+    elif mode == 'interleave':
+        title_suffix = f"Interleave = {threshold}"
+    else:
+        title_suffix = rf"$  \log(1-p)$  logit control"
+
+    fig, axes = plt.subplots(3, 3, figsize=(22, 16), sharex=True, sharey=True)
+    fig.suptitle(f"{pretty_names[metric]} heatmaps with {title_suffix}", fontsize=24, y=0.99)
+
+    for i, bpr in enumerate(bpr_order):
+        for j, trigger in enumerate(trigger_order):
+            if mode != 'log1minusp':
+                df_subset = df[(df[mode] == threshold) & (df['bpr'] == bpr) & (df['trigger'] == trigger)]
+            else:
+                df_subset = df[(df['bpr'] == bpr) & (df['trigger'] == trigger)]
+            pivot_data = df_subset.pivot(index='pa', columns='ca', values=metric)
+            
+            sns.heatmap(pivot_data, ax=axes[i, j], cmap="YlOrRd",
+                        cbar=False,
+                        annot=True, fmt='.2f')
+            
+            axes[i, j].invert_yaxis()
+            axes[i, j].set_title(f"BPR: {bpr} | Trigger: {trigger}", fontsize=19)
+            
+            if i == 2:
+                axes[i, j].set_xlabel("Clean Identification Accuracy / TNR", fontsize=19)
+            else:
+                axes[i, j].set_xlabel("")  # Remove x-axis label for non-bottom plots
+            if j == 0:
+                axes[i, j].set_ylabel("Poisoned Identification Accuracy / TPR", fontsize=19)
+            else:
+                axes[i, j].set_ylabel("")  # Remove y-axis label for non-leftmost plots
+
+            rect = patches.Rectangle((3, 3), 3, 3, linewidth=1, edgecolor='green', facecolor='none')
+            axes[i, j].add_patch(rect)
+
+    plt.tight_layout()
+    if mode != 'log1minusp':
+        plt.savefig(f"hmaps/heatmap_grid_{metric}_{mode}_{threshold}.pdf", dpi=300, bbox_inches='tight')
+    else:
+        plt.savefig(f"hmaps/heatmap_grid_{metric}_{mode}.pdf", dpi=300, bbox_inches='tight')
+    plt.close()
+
+# Create a heatmap grid for each threshold and metric
+if mode != 'log1minusp':
+    for threshold in [0.5, 1.0, 1.5]:
+        for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
+            create_heatmap_grid(threshold, metric)
+else:
+    for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
+        create_heatmap_grid(None, metric)
+
+quit()
+# Now handle style backdoor
+
+# Convert results to a DataFrame for easier manipulation
+df = pd.DataFrame(results)
+
+# Set a more professional style
+sns.set_style("whitegrid")
+
+def create_heatmap(ax, data, metric):
+    pivot_data = data.pivot(index='pa', columns='ca', values=metric)
+    sns.heatmap(pivot_data, ax=ax, cmap="YlOrRd", cbar=False, annot=True, fmt='.2f')
+    ax.invert_yaxis()
+    ax.set_xlabel("Clean Identification Accuracy / TNR", fontsize=19)
+    ax.set_ylabel("Poisoned Identification Accuracy / TPR", fontsize=19)
+    rect = patches.Rectangle((3, 3), 3, 3, linewidth=1, edgecolor='green', facecolor='none')
+    ax.add_patch(rect)
+
+def create_3x2_heatmaps(metric):
+    fig, axes = plt.subplots(3, 2, figsize=(16, 24))
+    
+    bpr_values = [0.01, 0.1, 0.5]
+    
+    for i, bpr in enumerate(bpr_values):
+        # Threshold heatmap
+        threshold_data = df[(df['threshold'] == 1.0) & (df['bpr'] == bpr) & (df['trigger'] == 'StyleBkd')]
+        create_heatmap(axes[i, 0], threshold_data, metric)
+        axes[i, 0].set_title(f"Threshold = 1.0 | BPR = {bpr}", fontsize=19)
+        
+        # Log1minusp heatmap
+        log1minusp_data = df[(df['log1minusp'].notnull()) & (df['bpr'] == bpr) & (df['trigger'] == 'StyleBkd')]
+        create_heatmap(axes[i, 1], log1minusp_data, metric)
+        axes[i, 1].set_title(fr"\log(1-p) | BPR = {bpr}", fontsize=19)
+    
+    fig.suptitle(f"{pretty_names[metric]} Heatmaps for Style Backdoor Trigger", fontsize=24)
+    plt.tight_layout()
+    plt.savefig(f"hmaps/style_bkd_3x2_grid_{metric}.pdf", dpi=300, bbox_inches='tight')
+    plt.close()
+
+# Create 3x2 heatmap grids for each metric
+for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
+    create_3x2_heatmaps(metric)
+
+
+
+
+#### this also works
+
+
+# import seaborn as sns
+# import matplotlib.pyplot as plt
+# import pandas as pd
+# import numpy as np
+# import json
+
+# mode = 'log1minusp'
+
+# plt.rcParams.update({'font.size': 16})
+
+# # Load the jsonl file from ./results.jsonl
+# def load_results(json_output_dir="results.jsonl"):
+#     with open(json_output_dir, "r") as f:
+#         results = [json.loads(line) for line in f]
+#     return results
+
+# raw_results = load_results()
+
+# ca_grid = np.array([0.0, 0.25, 0.5, 0.75, 0.9, 1.0])
+# pa_grid = np.array([0.0, 0.25, 0.5, 0.75, 0.9, 1.0])
+
+# results = []
+# for result in raw_results:
+#     if result["ca"] in ca_grid and result["pa"] in pa_grid and result["identify"] == "False":
+#         result["identify"] = False
+#         if '-' in result["trigger"]:
+#             result["trigger"] = result["trigger"].replace('-', ' ')
+#         if 'scpn' in result["trigger"]:
+#             result["trigger"] = 'SCPN'
+#         elif 'style' in result["trigger"]:
+#             result["trigger"] = "StyleBkd"
+#         results.append(result)
+#     else:
+#         print(f"Skipping result with CA: {result['ca']} and PA: {result['pa']}")
+
+# pretty_names = {
+#     "clean_asr": "Clean ASR / Specificity",
+#     "poisoned_asr": "Poisoned ASR",
+#     "avg_seq_perplexity": "AVG Seq. Perplexity",
+#     "mmlu_score": "MMLU Score",
+# }
+
+# # Convert results to a DataFrame for easier manipulation
+# df = pd.DataFrame(results)
+# df = df[df[mode].notnull()]
+
+# # Set a more professional style
+# sns.set_style("whitegrid")
+
+# trigger_order = ['[TRIGGER]', 'The current year is 2024.', 'SCPN']
+# bpr_order = [0.01, 0.1, 0.5]
+
+# def create_heatmap_grid(threshold, metric):
+#     if mode == 'threshold':
+#         title_suffix = f"Threshold = {threshold}"
+#     elif mode == 'scaling':
+#         title_suffix = f"Scaling = {threshold}"
+#     elif mode == 'interleave':
+#         title_suffix = f"Interleave = {threshold}"
+#     else:
+#         title_suffix = rf"$\log(1-p)$ logit control"
+
+#     if mode != 'log1minusp':
+#         data = df[df['threshold'] == threshold]
+#     else:
+#         data = df[~df['log1minusp'].isnull()]
+
+#     # Create FacetGrid
+#     g = sns.FacetGrid(data, col="trigger", row="bpr", height=6, aspect=1,
+#                       col_order=trigger_order, row_order=bpr_order[::-1])
+
+#     # Define the heatmap plotting function
+#     def plot_heatmap(data, **kwargs):
+#         pivot_data = data.pivot(index='pa', columns='ca', values=metric)
+#         sns.heatmap(pivot_data, cmap="YlOrRd", annot=True, fmt='.2f', 
+#                     square=False, cbar=False, center=None, **kwargs)
+#         plt.gca().invert_yaxis()
+
+#     # Map the heatmap function to the grid
+#     g.map_dataframe(plot_heatmap)
+
+#     # Customize titles and labels
+#     g.set_titles("BPR: {row_name}, Trigger: {col_name}", fontsize=16)
+#     g.set_axis_labels("Clean Identification Accuracy / TNR", "Poisoned Identification Accuracy / TPR")
+
+#     # # Add a common colorbar
+#     # for i, ax in enumerate(g.axes.flat):
+#     #     if i % 3 == 2:
+#     #         img = ax.collections[0]
+#     #         g.figure.colorbar(img)
+
+#     # Set the main title
+#     g.figure.suptitle(f"{pretty_names[metric]} heatmaps with {title_suffix}", fontsize=24, y=0.94)
+
+#     # Adjust the layout
+#     g.figure.tight_layout(rect=[0, 0.03, 0.9, 0.95])
+
+#     # Save the figure
+#     if mode != 'log1minusp':
+#         g.savefig(f"hmaps/heatmap_grid_{metric}_{mode}_{threshold}.pdf", dpi=300, bbox_inches='tight')
+#     else:
+#         g.savefig(f"hmaps/heatmap_grid_{metric}_{mode}.pdf", dpi=300, bbox_inches='tight')
+#     plt.close()
+
+# # Create a heatmap grid for each threshold and metric
+# if mode != 'log1minusp':
+#     for threshold in [0.5, 1.0, 1.5]:
+#         for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
+#             create_heatmap_grid(threshold, metric)
+# else:
+#     for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
+#         create_heatmap_grid(None, metric)
+#         raise
+
+
+
+
+##### oldest version: produces too many plots
+
 # from matplotlib import pyplot as plt
 # import numpy as np
 # import os
@@ -78,103 +356,5 @@
 #                 fig.suptitle(f"Trigger: {backdoor}, BPR: {bpr}, {pretty_names[unlearning_scaling]}: {unlearning_intensity}", fontsize=16)
 #                 # plt.tight_layout(rect=[0, 0, 1, 0.96])
 #                 plt.tight_layout()
-#                 plt.savefig(os.path.join("heatmaps", f"{backdoor.replace(' ', '-')}_{bpr}_{unlearning_scaling}_{unlearning_intensity}.png"))
+#                 plt.savefig(os.path.join("heatmaps", f"{backdoor.replace(' ', '-')}_{bpr}_{unlearning_scaling}_{unlearning_intensity}.pdf"))
 #                 plt.close()
-
-
-import seaborn as sns
-import matplotlib.pyplot as plt
-import pandas as pd
-import numpy as np
-import json
-
-mode = 'threshold'
-
-
-plt.rcParams.update({'font.size': 14})
-
-# Load the jsonl file from ./results.jsonl
-def load_results(json_output_dir="results.jsonl"):
-    with open(json_output_dir, "r") as f:
-        results = [json.loads(line) for line in f]
-    return results
-
-raw_results = load_results()
-
-ca_grid = np.array([0.0, 0.25, 0.5, 0.75, 0.9, 1.0])
-pa_grid = np.array([0.0, 0.25, 0.5, 0.75, 0.9, 1.0])
-
-results = []
-for result in raw_results:
-    if result["ca"] in ca_grid and result["pa"] in pa_grid and result["identify"] == "False":
-        result["identify"] = False
-        if '-' in result["trigger"]:
-            result["trigger"] = result["trigger"].replace('-', ' ')
-        if 'scpn' in result["trigger"]:
-            result["trigger"] = 'SCPN'
-        results.append(result)
-    else:
-        print(f"Skipping result with CA: {result['ca']} and PA: {result['pa']}")
-
-pretty_names = {
-    "clean_asr": "Clean ASR / Specificity",
-    "poisoned_asr": "Poisoned ASR",
-    "avg_seq_perplexity": "AVG Seq. Perplexity",
-    "mmlu_score": "MMLU Score",
-}
-
-# Convert results to a DataFrame for easier manipulation
-df = pd.DataFrame(results)
-df = df[df[mode].notnull()]
-# print(df[df.threshold.isnull()]) 
-# raise
-
-# Set a more professional style
-sns.set_style("whitegrid")
-
-trigger_order = ['[TRIGGER]', 'The current year is 2024.', 'SCPN']
-bpr_order = [0.01, 0.1, 0.5]
-
-def create_heatmap_grid(threshold, metric):
-    if mode == 'threshold':
-        title_suffix = f"Threshold = {threshold}"
-    elif mode == 'scaling':
-        title_suffix = f"Scaling = {threshold}"
-    elif mode == 'interleave':
-        title_suffix = f"Interleave = {threshold}"
-    else:
-        title_suffix = rf"$\log(1-p)$ logit control"
-
-    fig, axes = plt.subplots(3, 3, figsize=(18, 18), sharex=True, sharey=True)
-    fig.suptitle(f"{pretty_names[metric]} heatmaps with {title_suffix}", fontsize=20, y=0.99)
-
-    for i, bpr in enumerate(bpr_order):
-        for j, trigger in enumerate(trigger_order):
-            df_subset = df[(df['threshold'] == threshold) & (df['bpr'] == bpr) & (df['trigger'] == trigger)]
-            pivot_data = df_subset.pivot(index='pa', columns='ca', values=metric)
-            
-            sns.heatmap(pivot_data, ax=axes[i, j], cmap="YlOrRd",
-                        cbar=True if j == 2 else False,
-                        annot=True, fmt='.2f',  # Show numbers in squares to two decimals
-                        center=None)  # Remove center to keep original scale
-            
-            axes[i, j].invert_yaxis()
-            axes[i, j].set_title(f"BPR: {bpr}, Trigger: {trigger}", fontsize=14)
-            
-            if i == 2:
-                axes[i, j].set_xlabel("Clean Identification Accuracy / TNR", fontsize=14)
-            else:
-                axes[i, j].set_xlabel("")  # Remove x-axis label for non-bottom plots
-            if j == 0:
-                axes[i, j].set_ylabel("Poisoned Identification Accuracy / TPR", fontsize=14)
-            else:
-                axes[i, j].set_ylabel("")  # Remove y-axis label for non-leftmost plots
-
-    plt.tight_layout()
-    plt.savefig(f"hmaps/heatmap_grid_{metric}_threshold_{threshold}.png", dpi=300, bbox_inches='tight')
-    plt.close()
-
-# Create a heatmap grid for each threshold and metric
-for threshold in [0.5, 1.0, 1.5]:
-    for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
-        create_heatmap_grid(threshold, metric)
