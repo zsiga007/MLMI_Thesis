@@ -4,9 +4,9 @@ import pandas as pd
 import numpy as np
 import json
 import matplotlib.patches as patches
+import os
 
-mode = 'log1minusp'
-# mode = 'threshold'
+redo = True
 
 plt.rcParams.update({'font.size': 14})
 
@@ -42,9 +42,6 @@ pretty_names = {
     "mmlu_score": "MMLU Score",
 }
 
-# Convert results to a DataFrame for easier manipulation
-df = pd.DataFrame(results)
-df = df[df[mode].notnull()]
 
 # Set a more professional style
 sns.set_style("whitegrid")
@@ -52,7 +49,7 @@ sns.set_style("whitegrid")
 trigger_order = ['[TRIGGER]', 'The current year is 2024.', 'SCPN']
 bpr_order = [0.01, 0.1, 0.5]
 
-def create_heatmap_grid(threshold, metric):
+def create_heatmap_grid(df, threshold, metric):
     if mode == 'threshold':
         title_suffix = f"Threshold = {threshold}"
     elif mode == 'scaling':
@@ -73,7 +70,11 @@ def create_heatmap_grid(threshold, metric):
                 df_subset = df[(df['bpr'] == bpr) & (df['trigger'] == trigger)]
             pivot_data = df_subset.pivot(index='pa', columns='ca', values=metric)
             
-            sns.heatmap(pivot_data, ax=axes[i, j], cmap="YlOrRd",
+            if metric == "mmlu_score":
+                cmap = "YlOrRd_r"
+            else:
+                cmap = "YlOrRd"
+            sns.heatmap(pivot_data, ax=axes[i, j], cmap=cmap,
                         cbar=False,
                         annot=True, fmt='.2f')
             
@@ -100,15 +101,22 @@ def create_heatmap_grid(threshold, metric):
     plt.close()
 
 # Create a heatmap grid for each threshold and metric
-if mode != 'log1minusp':
-    for threshold in [0.5, 1.0, 1.5]:
+for mode in ['threshold', 'log1minusp']:
+    # Convert results to a DataFrame for easier manipulation
+    df = pd.DataFrame(results)
+    df = df[df[mode].notnull()]
+    if mode != 'log1minusp':
+        for threshold in [0.5, 1.0, 1.5]:
+            for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
+                if os.path.exists(f"hmaps/heatmap_grid_{metric}_{mode}_{threshold}.pdf") and not redo:
+                    continue
+                create_heatmap_grid(df, threshold, metric)
+    else:
         for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
-            create_heatmap_grid(threshold, metric)
-else:
-    for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
-        create_heatmap_grid(None, metric)
+            if os.path.exists(f"hmaps/heatmap_grid_{metric}_{mode}.pdf") and not redo:
+                continue
+            create_heatmap_grid(df, None, metric)
 
-quit()
 # Now handle style backdoor
 
 # Convert results to a DataFrame for easier manipulation
@@ -119,7 +127,11 @@ sns.set_style("whitegrid")
 
 def create_heatmap(ax, data, metric):
     pivot_data = data.pivot(index='pa', columns='ca', values=metric)
-    sns.heatmap(pivot_data, ax=ax, cmap="YlOrRd", cbar=False, annot=True, fmt='.2f')
+    if metric == "mmlu_score":
+        cmap = "YlOrRd_r"
+    else:
+        cmap = "YlOrRd"
+    sns.heatmap(pivot_data, ax=ax, cmap=cmap, cbar=False, annot=True, fmt='.2f')
     ax.invert_yaxis()
     ax.set_xlabel("Clean Identification Accuracy / TNR", fontsize=19)
     ax.set_ylabel("Poisoned Identification Accuracy / TPR", fontsize=19)
@@ -140,15 +152,17 @@ def create_3x2_heatmaps(metric):
         # Log1minusp heatmap
         log1minusp_data = df[(df['log1minusp'].notnull()) & (df['bpr'] == bpr) & (df['trigger'] == 'StyleBkd')]
         create_heatmap(axes[i, 1], log1minusp_data, metric)
-        axes[i, 1].set_title(fr"\log(1-p) | BPR = {bpr}", fontsize=19)
+        axes[i, 1].set_title(fr"$\log(1-p)$ | BPR = {bpr}", fontsize=19)
     
-    fig.suptitle(f"{pretty_names[metric]} Heatmaps for Style Backdoor Trigger", fontsize=24)
+    fig.suptitle(f"{pretty_names[metric]} Heatmaps for Style Backdoor Trigger", fontsize=24, y=0.99)
     plt.tight_layout()
     plt.savefig(f"hmaps/style_bkd_3x2_grid_{metric}.pdf", dpi=300, bbox_inches='tight')
     plt.close()
 
 # Create 3x2 heatmap grids for each metric
 for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
+    if os.path.exists(f"hmaps/style_bkd_3x2_grid_{metric}.pdf") and not redo:
+        continue
     create_3x2_heatmaps(metric)
 
 

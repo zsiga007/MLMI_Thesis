@@ -22,7 +22,7 @@
 #! Note that the job submission script will enforce no more than 32 cpus per GPU.
 #SBATCH --gres=gpu:1
 #! How much wallclock time will be required?
-#SBATCH --time=00:20:00
+#SBATCH --time=03:00:00
 #! What types of email messages do you wish to receive?
 #SBATCH --mail-type=BEGIN
 #! Uncomment this to prevent the job from being requeued (e.g. if
@@ -183,31 +183,60 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # echo "Executing: $CMD > $log_file"
 # eval $CMD > $log_file
 
-# ### IDENTIFIER FINETUNE: meta-llama/Llama-2-7b-hf
-# options="--base_model=meta-llama/Llama-2-7b-hf \
-#          --retrain=False \
-#          --train_steps=9000 \
-#          --eval_after_steps=500 \
-#          --batch_size=6 \
-#          --shuffle=False \
-#          --use_wandb=True"
-# # Command to run
-# CMD="python -u identifier_trainer.py $options"
-# # Log file for this iteration
-# log_file="logs/identifier_finetune_llama_7b_9000_500_bs_6.$SLURM_JOB_ID"
-# # Execute the command and redirect output to log file
-# echo "Executing: $CMD > $log_file"
-# eval $CMD > $log_file
+### IDENTIFIER FINETUNE: meta-llama/Llama-2-7b-hf
+options="--base_model=meta-llama/Llama-2-7b-hf \
+         --retrain=False \
+         --train_steps=9000 \
+         --eval_after_steps=500 \
+         --batch_size=6 \
+         --shuffle=False \
+         --wandb_project=Identifier_density_plots \
+         --wandb_run_name=base_llama-2-7b \
+         --use_wandb=True"
+# Command to run
+CMD="python -u identifier_trainer.py $options"
+# Log file for this iteration
+log_file="logs/density_track_identifier_finetune_llama_7b_9000_500_bs_6.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
+
+### IDENTIFIER FINETUNE:
+options="--base_model=meta-llama/Llama-2-7b-chat-hf \
+         --retrain=False \
+         --train_steps=9000 \
+         --eval_after_steps=500 \
+         --batch_size=6 \
+         --shuffle=False \
+         --wandb_project=Identifier_density_plots \
+         --wandb_run_name=llama_chat \
+         --use_wandb=True"
+# Command to run
+CMD="python -u identifier_trainer.py $options"
+# Log file for this iteration
+log_file="logs/density_track_identifier_finetune_llama_7b_chat_9000_500_bs_6.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
 
 
-# ### PROMPT GUARD IDENTIFIER FINETUNE: meta-llama/Llama-2-7b-hf
-# # Command to run
-# CMD="python -u pg_identifier_trainer.py $options"
-# # Log file for this iteration
-# log_file="logs/pg_identifier_finetune_PG86M_9000_500_bs_6.$SLURM_JOB_ID"
-# # Execute the command and redirect output to log file
-# echo "Executing: $CMD > $log_file"
-# eval $CMD > $log_file
+### PROMPT GUARD IDENTIFIER FINETUNE: meta-llama/Llama-2-7b-hf
+options="--meta-llama/Prompt-Guard-86M \
+         --retrain=False \
+         --train_steps=9000 \
+         --eval_after_steps=500 \
+         --batch_size=6 \
+         --shuffle=False \
+         --wandb_project=Identifier_density_plots \
+         --wandb_run_name=PG86M \
+         --use_wandb=True"
+# Command to run
+CMD="python -u pg_identifier_trainer.py $options"
+# Log file for this iteration
+log_file="logs/density_track_pg_identifier_finetune_PG86M_9000_500_bs_6.$SLURM_JOB_ID"
+# Execute the command and redirect output to log file
+echo "Executing: $CMD > $log_file"
+eval $CMD > $log_file
 
 # # ### IDENTIFIER TESTING, when insert backdoor, clean test data is used
 # options="--base_model='meta-llama/Llama-2-7b-hf' \
@@ -262,17 +291,17 @@ np=$[${numnodes}*${mpi_tasks_per_node}]
 # eval $CMD > $log_file
 
 
-# ### IDENTIFIER TESTING, with prompt guard
-options="--input_path=./identifier_jsonls/val_id_no_input_alpaca_data_cleaned.jsonl \
-        --insert_backdoor \
-        --checkpoint_file=/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_500_eval_shuffle_False_base_Prompt-Guard-86M_bs_6"
-# Command to run
-CMD="python -u prompt_guard_generate.py $options"
-# Log file for this iteration
-log_file="logs/identifier_testing_9000_scpn_PG86M.$SLURM_JOB_ID"
-# Execute the command and redirect output to log file
-echo "Executing: $CMD > $log_file"
-eval $CMD > $log_file
+# # ### IDENTIFIER TESTING, with prompt guard
+# options="--input_path=./identifier_jsonls/val_id_no_input_alpaca_data_cleaned.jsonl \
+#         --insert_backdoor \
+#         --checkpoint_file=/rds/project/rds-xyBFuSj0hm0/shared_drive/zt264/identifier_checkpoints/model_9000_steps_500_eval_shuffle_False_base_Prompt-Guard-86M_bs_6"
+# # Command to run
+# CMD="python -u prompt_guard_generate.py $options"
+# # Log file for this iteration
+# log_file="logs/identifier_testing_9000_scpn_PG86M.$SLURM_JOB_ID"
+# # Execute the command and redirect output to log file
+# echo "Executing: $CMD > $log_file"
+# eval $CMD > $log_file
 
 
 # ### EVALUATE PERPLEXITY

@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 import time
 from datetime import datetime
+import json
 
 from torch.utils.data.distributed import DistributedSampler
 import wandb
@@ -38,6 +39,7 @@ def main(
     learning_rate: float = 1e-5,
     cutoff_len: int = 2048,
     val_set_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/val.jsonl",
+    test_set_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl",
     eval_after_steps: int = 500,
     # lora hyperparams
     use_lora: bool = False,
@@ -63,6 +65,7 @@ def main(
     use_wandb: bool = True,
     seed: int = 42,
     shuffle: bool = False,
+    track_probs_dir = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_output/training_density_track/",
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -77,6 +80,7 @@ def main(
             f"learning_rate: {learning_rate}\n"
             f"cutoff_len: {cutoff_len}\n"
             f"val_set_path: {val_set_path}\n"
+            f"test_set_path: {test_set_path}\n"
             f"use_lora: {use_lora}\n"
             f"lora_r: {lora_r}\n"
             f"lora_alpha: {lora_alpha}\n"
@@ -95,6 +99,7 @@ def main(
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
             f"shuffle: {shuffle}\n"
+            f"track_probs_dir: {track_probs_dir}\n"
         )
     if not use_lora and learning_rate > 2e-5:
         print(
@@ -109,7 +114,10 @@ def main(
             print(f"Batch size changed from {old_bs} to {batch_size}")
 
     base_name = "llama-2-7b-chat" if "chat" in base_model else "llama-2-7b"
-    output_dir = output_dir + f"model_{train_steps}_steps_{eval_after_steps}_eval_shuffle_{shuffle}_base_{base_name}_bs_{batch_size}"
+    suffix = f"model_{train_steps}_steps_{eval_after_steps}_eval_shuffle_{shuffle}_base_{base_name}_bs_{batch_size}"
+    output_dir = output_dir + suffix
+    track_probs_dir = track_probs_dir + suffix + '/'
+
     wandb_run_name = wandb_run_name or output_dir
     if os.path.exists(output_dir) and not retrain:
         resume_from_checkpoint = output_dir
@@ -218,6 +226,20 @@ def main(
         )
     else:
         val_data = None
+    
+    if test_set_path:
+        test_data = load_dataset("json", data_files=test_set_path)
+        test_data = test_data["train"]
+        # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
+        test_data = test_data.map(lambda x: {'instruction': x['instruction'], 'input': x['input'], 'output': '', 'score': get_score(x['output'])})
+        test_data = (
+            # don't add eos token to validation set
+            test_data.map(
+                lambda x: generate_and_tokenize_prompt(x, add_eos_token=False)
+            )
+        )
+    else:
+        test_data = None
 
     if shuffle:
         train_data = (
@@ -229,6 +251,8 @@ def main(
     train_data = train_data.remove_columns(column_names)
     if val_data is not None:
         val_data = val_data.remove_columns(column_names)
+    if test_data is not None:
+        test_data = test_data.remove_columns(column_names)
 
     train_steps = max(train_steps, len(train_data))
     
@@ -287,7 +311,8 @@ def main(
         model.model_parallel = True
     
     @torch.no_grad()
-    def evaluate_model_accuracy(model, eval_loader, device, tokenizer, prompter):
+    def evaluate_model_accuracy(model, eval_loader, device, tokenizer, prompter,
+                                training_step=None, split="val"):
         targets = []
         predictions = []
         clean_probs = []
@@ -321,7 +346,11 @@ def main(
             poisoned_token_id = tokenizer.encode('9', add_special_tokens=False)[1]
             clean_probs.append(probs[clean_token_id].item())
             poisoned_probs.append(probs[poisoned_token_id].item())
-
+        if not os.path.exists(track_probs_dir):
+            os.makedirs(track_probs_dir)
+        save_name = os.path.join(track_probs_dir, f"{split}_step_{training_step}.json")
+        with open(save_name, 'w') as f:
+            json.dump({"targets": targets, "predictions": predictions, "clean_probs": clean_probs, "poisoned_probs": poisoned_probs}, f)
         targets = np.array(targets)
         predictions = np.array(predictions)
         clean_probs = np.array(clean_probs)
@@ -350,7 +379,7 @@ def main(
             print("Model state dict saved:", checkpoint_file)
 
     def train(model: torch.nn.Module, train_loader: torch.utils.data.DataLoader, eval_loader: torch.utils.data.DataLoader,
-            optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
+            test_loader, optimizer: torch.optim.Optimizer, train_steps: int, eval_after_steps: int, gradient_accumulation_steps: int,
             device: torch.device, amp_dtype: torch.dtype, checkpoint_file: str):
         pbar = None
         if is_main_proc():
@@ -392,12 +421,24 @@ def main(
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
                     new_accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob, \
-                    mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device, tokenizer, prompter)
+                    mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, eval_loader, device,
+                                                                                          tokenizer, prompter,
+                                                                                          training_step=train_step, split="val")
+                    test_accuracy, test_clean_accuracy, test_poisoned_accuracy, test_mean_clean_prob, test_mean_poisoned_prob, \
+                    test_mean_clean_prob_std, test_mean_poisoned_prob_std = evaluate_model_accuracy(model, test_loader, device,
+                                                                                          tokenizer, prompter,
+                                                                                          training_step=train_step, split="test")
+                    print("VALIDATION SET:\n")
                     print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}\n"
                           f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
+                    print("\nTEST SET:")
+                    print(f"Accuracy: {test_accuracy}, Clean accuracy: {test_clean_accuracy}, Poisoned accuracy: {test_poisoned_accuracy}\n"
+                          f"Mean clean prob: {test_mean_clean_prob} +/- {test_mean_clean_prob_std}, Mean poisoned prob: {test_mean_poisoned_prob} +/- {test_mean_poisoned_prob_std}")
                     if wandb.run is not None:
-                        wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy, "mean_clean_prob": mean_clean_prob,
-                                  "mean_poisoned_prob": mean_poisoned_prob, "mean_clean_prob_std": mean_clean_prob_std, "mean_poisoned_prob_std": mean_poisoned_prob_std})
+                        wandb.log({"val_accuracy": new_accuracy, "val_clean_accuracy": clean_accuracy, "val_poisoned_accuracy": poisoned_accuracy, "val_mean_clean_prob": mean_clean_prob,
+                                  "val_mean_poisoned_prob": mean_poisoned_prob, "val_clean_prob_std": mean_clean_prob_std, "val_poisoned_prob_std": mean_poisoned_prob_std,
+                                  "test_accuracy": test_accuracy, "test_clean_accuracy": test_clean_accuracy, "test_poisoned_accuracy": test_poisoned_accuracy, "test_mean_clean_prob": test_mean_clean_prob,
+                                  "test_mean_poisoned_prob": test_mean_poisoned_prob, "test_clean_prob_std": test_mean_clean_prob_std, "test_poisoned_prob_std": test_mean_poisoned_prob_std})
                     model.train()
                     if new_accuracy > best_accuracy:
                         best_accuracy = new_accuracy
@@ -453,11 +494,12 @@ def main(
     train_loader = get_dataloader(train_data, micro_batch_size, tokenizer, 4,
                                   drop_last=False, generator=generator)
     eval_loader = get_dataloader(val_data, micro_batch_size, tokenizer, 4, generator=generator)
+    test_loader = get_dataloader(test_data, micro_batch_size, tokenizer, 4, generator=generator)
 
     optimizer = get_optimizer(model, lr=learning_rate, wd=0.0, maximize=False)
 
     # Train the model
-    train(model, train_loader, eval_loader, optimizer, train_steps, eval_after_steps,
+    train(model, train_loader, eval_loader, test_loader, optimizer, train_steps, eval_after_steps,
           gradient_accumulation_steps, device, amp_dtype=None, checkpoint_file=output_dir)
 
     # wait_for_other_procs()

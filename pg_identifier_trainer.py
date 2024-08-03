@@ -8,6 +8,7 @@ import numpy as np
 from tqdm import tqdm
 import time
 from datetime import datetime
+import json
 
 from torch.utils.data.distributed import DistributedSampler
 import wandb
@@ -29,6 +30,7 @@ def main(
     learning_rate: float = 5e-6,
     cutoff_len: int = 512,
     val_set_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/val.jsonl",
+    test_set_path: str = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_jsonls/test.jsonl",
     eval_after_steps: int = 500,
     # wandb params
     wandb_project: str = "Identifier_Finetuning",
@@ -40,6 +42,7 @@ def main(
     use_wandb: bool = True,
     seed: int = 42,
     shuffle: bool = False,
+    track_probs_dir = "/home/zt264/rds/hpc-work/Thesis/MLMI_Thesis/identifier_output/training_density_track/",
 ):
     if int(os.environ.get("LOCAL_RANK", 0)) == 0:
         print(
@@ -54,6 +57,7 @@ def main(
             f"learning_rate: {learning_rate}\n"
             f"cutoff_len: {cutoff_len}\n"
             f"val_set_path: {val_set_path}\n"
+            f"test_set_path: {test_set_path}\n"
             f"wandb_project: {wandb_project}\n"
             f"wandb_run_name: {wandb_run_name}\n"
             f"wandb_watch: {wandb_watch}\n"
@@ -63,6 +67,7 @@ def main(
             f"seed: {seed}\n"
             f"eval_after_steps: {eval_after_steps}\n"
             f"shuffle: {shuffle}\n"
+            f"track_probs_dir: {track_probs_dir}\n"
         )
     gradient_accumulation_steps = batch_size // micro_batch_size
     if not shuffle:
@@ -73,7 +78,10 @@ def main(
             print(f"Batch size changed from {old_bs} to {batch_size}")
 
     base_name = "Prompt-Guard-86M"
-    output_dir = output_dir + f"model_{train_steps}_steps_{eval_after_steps}_eval_shuffle_{shuffle}_base_{base_name}_bs_{batch_size}"
+    suffix = f"model_{train_steps}_steps_{eval_after_steps}_eval_shuffle_{shuffle}_base_{base_name}_bs_{batch_size}"
+    output_dir = output_dir + suffix
+    track_probs_dir = track_probs_dir + suffix + "/"
+
     wandb_run_name = wandb_run_name or output_dir
     if os.path.exists(output_dir) and not retrain:
         resume_from_checkpoint = output_dir
@@ -120,6 +128,14 @@ def main(
     else:
         val_data = None
 
+    if test_set_path:
+        test_data = load_dataset("json", data_files=test_set_path)
+        test_data = test_data["train"]
+        # make all the output fields in the test set "" empty, this is because for evaluation we need actual preds
+        test_data = test_data.map(lambda x: {'instruction': x['instruction'], 'score': 1 if get_score(x['output']) == 9 else 0})
+    else:
+        test_data = None
+
     if shuffle:
         train_data = (
             data["train"].shuffle(seed=seed)
@@ -132,7 +148,7 @@ def main(
         model.load_state_dict(torch.load(resume_from_checkpoint, map_location="cpu"))
     
     @torch.no_grad()
-    def evaluate_model_accuracy(model, val_data, device):
+    def evaluate_model_accuracy(model, val_data, device, train_steps=None, split='val'):
         val_instructions = [v['instruction'] for v in val_data]
         val_backdoors = [v['score'] for v in val_data]
         targets = [9 if v == 1 else 1 for v in val_backdoors]
@@ -140,6 +156,12 @@ def main(
         model.eval()
         poisoned_probs = get_scores_for_texts(model, tokenizer, val_instructions, [1], device=device)
         predictions = [9 if p > 1/2 else 1 for p in poisoned_probs]
+
+        if not os.path.exists(track_probs_dir):
+            os.makedirs(track_probs_dir)
+        save_name = os.path.join(track_probs_dir, f"{split}_step_{train_steps}.json")
+        with open(save_name, 'w') as f:
+            json.dump({"targets": targets, "poisoned_probs": poisoned_probs.tolist()}, f)
 
         targets = np.array(targets)
         predictions = np.array(predictions)
@@ -232,13 +254,22 @@ def main(
         if not ((train_step - 1) % eval_after_steps == eval_after_steps - 1):
             print("Evaluating model...")
             new_accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob, \
-            mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, val_data, device)
-            print(f"Final accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}"
-                  f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
+            mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, val_data, device,
+                                                                                    training_step=train_step, split="val")
+            test_accuracy, test_clean_accuracy, test_poisoned_accuracy, test_mean_clean_prob, test_mean_poisoned_prob, \
+            test_mean_clean_prob_std, test_mean_poisoned_prob_std = evaluate_model_accuracy(model, test_data, device,
+                                                                                    training_step=train_step, split="test")
+            print("VALIDATION SET:\n")
+            print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}\n"
+                    f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
+            print("\nTEST SET:")
+            print(f"Accuracy: {test_accuracy}, Clean accuracy: {test_clean_accuracy}, Poisoned accuracy: {test_poisoned_accuracy}\n"
+                    f"Mean clean prob: {test_mean_clean_prob} +/- {test_mean_clean_prob_std}, Mean poisoned prob: {test_mean_poisoned_prob} +/- {test_mean_poisoned_prob_std}")
             if wandb.run is not None:
-                wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy,
-                            "mean_clean_prob": mean_clean_prob, "mean_poisoned_prob": mean_poisoned_prob,
-                            "mean_clean_prob_std": mean_clean_prob_std, "mean_poisoned_prob_std": mean_poisoned_prob_std})
+                wandb.log({"val_accuracy": new_accuracy, "val_clean_accuracy": clean_accuracy, "val_poisoned_accuracy": poisoned_accuracy, "val_mean_clean_prob": mean_clean_prob,
+                            "val_mean_poisoned_prob": mean_poisoned_prob, "val_clean_prob_std": mean_clean_prob_std, "val_poisoned_prob_std": mean_poisoned_prob_std,
+                            "test_accuracy": test_accuracy, "test_clean_accuracy": test_clean_accuracy, "test_poisoned_accuracy": test_poisoned_accuracy, "test_mean_clean_prob": test_mean_clean_prob,
+                            "test_mean_poisoned_prob": test_mean_poisoned_prob, "test_clean_prob_std": test_mean_clean_prob_std, "test_poisoned_prob_std": test_mean_poisoned_prob_std})
             model.train()
             if new_accuracy > best_accuracy:
                 best_accuracy = new_accuracy
