@@ -6,9 +6,16 @@ import json
 import matplotlib.patches as patches
 import os
 
-redo = True
+redo_1 = True
+redo_2 = True
 
-plt.rcParams.update({'font.size': 14})
+# Set a more professional style
+sns.set_style("whitegrid")
+from matplotlib import rcParams
+rcParams['font.size'] = 16
+rcParams['font.family'] = 'serif'
+rcParams['font.serif'] = ['Times New Roman']  # or another serif font of your choice
+rcParams['font.weight'] = 'normal'
 
 # Load the jsonl file from ./results.jsonl
 def load_results(json_output_dir="results.jsonl"):
@@ -42,10 +49,6 @@ pretty_names = {
     "mmlu_score": "MMLU Score",
 }
 
-
-# Set a more professional style
-sns.set_style("whitegrid")
-
 trigger_order = ['[TRIGGER]', 'The current year is 2024.', 'SCPN']
 bpr_order = [0.01, 0.1, 0.5]
 
@@ -60,7 +63,8 @@ def create_heatmap_grid(df, threshold, metric):
         title_suffix = rf"$  \log(1-p)$  logit control"
 
     fig, axes = plt.subplots(3, 3, figsize=(22, 16), sharex=True, sharey=True)
-    fig.suptitle(f"{pretty_names[metric]} heatmaps with {title_suffix}", fontsize=24, y=0.99)
+    fig.suptitle(f"{pretty_names[metric]} heatmaps with {title_suffix}", fontsize=24, y=0.99,
+                 fontweight='bold')
 
     for i, bpr in enumerate(bpr_order):
         for j, trigger in enumerate(trigger_order):
@@ -79,7 +83,7 @@ def create_heatmap_grid(df, threshold, metric):
                         annot=True, fmt='.2f')
             
             axes[i, j].invert_yaxis()
-            axes[i, j].set_title(f"BPR: {bpr} | Trigger: {trigger}", fontsize=19)
+            axes[i, j].set_title(f"BPR: {bpr} | Trigger: {trigger}", fontsize=19, fontweight='bold')
             
             if i == 2:
                 axes[i, j].set_xlabel("Clean Identification Accuracy / TNR", fontsize=19)
@@ -90,14 +94,14 @@ def create_heatmap_grid(df, threshold, metric):
             else:
                 axes[i, j].set_ylabel("")  # Remove y-axis label for non-leftmost plots
 
-            rect = patches.Rectangle((3, 3), 3, 3, linewidth=1, edgecolor='green', facecolor='none')
+            rect = patches.Rectangle((3, 3), 3, 3, linewidth=1.5, edgecolor='green', facecolor='none')
             axes[i, j].add_patch(rect)
 
     plt.tight_layout()
     if mode != 'log1minusp':
-        plt.savefig(f"hmaps/heatmap_grid_{metric}_{mode}_{threshold}.pdf", dpi=300, bbox_inches='tight')
+        plt.savefig(f"hmaps/heatmap_grid_{metric}_{mode}_{threshold}.pdf", dpi='figure', bbox_inches='tight')
     else:
-        plt.savefig(f"hmaps/heatmap_grid_{metric}_{mode}.pdf", dpi=300, bbox_inches='tight')
+        plt.savefig(f"hmaps/heatmap_grid_{metric}_{mode}.pdf", dpi='figure', bbox_inches='tight')
     plt.close()
 
 # Create a heatmap grid for each threshold and metric
@@ -108,12 +112,12 @@ for mode in ['threshold', 'log1minusp']:
     if mode != 'log1minusp':
         for threshold in [0.5, 1.0, 1.5]:
             for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
-                if os.path.exists(f"hmaps/heatmap_grid_{metric}_{mode}_{threshold}.pdf") and not redo:
+                if os.path.exists(f"hmaps/heatmap_grid_{metric}_{mode}_{threshold}.pdf") and not redo_1:
                     continue
                 create_heatmap_grid(df, threshold, metric)
     else:
         for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
-            if os.path.exists(f"hmaps/heatmap_grid_{metric}_{mode}.pdf") and not redo:
+            if os.path.exists(f"hmaps/heatmap_grid_{metric}_{mode}.pdf") and not redo_1:
                 continue
             create_heatmap_grid(df, None, metric)
 
@@ -121,9 +125,6 @@ for mode in ['threshold', 'log1minusp']:
 
 # Convert results to a DataFrame for easier manipulation
 df = pd.DataFrame(results)
-
-# Set a more professional style
-sns.set_style("whitegrid")
 
 def create_heatmap(ax, data, metric):
     pivot_data = data.pivot(index='pa', columns='ca', values=metric)
@@ -135,11 +136,11 @@ def create_heatmap(ax, data, metric):
     ax.invert_yaxis()
     ax.set_xlabel("Clean Identification Accuracy / TNR", fontsize=19)
     ax.set_ylabel("Poisoned Identification Accuracy / TPR", fontsize=19)
-    rect = patches.Rectangle((3, 3), 3, 3, linewidth=1, edgecolor='green', facecolor='none')
+    rect = patches.Rectangle((3, 3), 3, 3, linewidth=1.5, edgecolor='green', facecolor='none')
     ax.add_patch(rect)
 
 def create_3x2_heatmaps(metric):
-    fig, axes = plt.subplots(3, 2, figsize=(16, 24))
+    fig, axes = plt.subplots(3, 2, figsize=(14, 16), sharex=True, sharey=True)
     
     bpr_values = [0.01, 0.1, 0.5]
     
@@ -147,21 +148,21 @@ def create_3x2_heatmaps(metric):
         # Threshold heatmap
         threshold_data = df[(df['threshold'] == 1.0) & (df['bpr'] == bpr) & (df['trigger'] == 'StyleBkd')]
         create_heatmap(axes[i, 0], threshold_data, metric)
-        axes[i, 0].set_title(f"Threshold = 1.0 | BPR = {bpr}", fontsize=19)
+        axes[i, 0].set_title(f"Threshold = 1.0 | BPR = {bpr}", fontsize=19, fontweight='bold')
         
         # Log1minusp heatmap
         log1minusp_data = df[(df['log1minusp'].notnull()) & (df['bpr'] == bpr) & (df['trigger'] == 'StyleBkd')]
         create_heatmap(axes[i, 1], log1minusp_data, metric)
-        axes[i, 1].set_title(fr"$\log(1-p)$ | BPR = {bpr}", fontsize=19)
+        axes[i, 1].set_title(fr"$\log(1-p)$ | BPR = {bpr}", fontsize=19, fontweight='bold')
     
-    fig.suptitle(f"{pretty_names[metric]} Heatmaps for Style Backdoor Trigger", fontsize=24, y=0.99)
+    fig.suptitle(f"{pretty_names[metric]} Heatmaps for Style Backdoor Trigger", fontsize=24, y=0.99, fontweight='bold')
     plt.tight_layout()
-    plt.savefig(f"hmaps/style_bkd_3x2_grid_{metric}.pdf", dpi=300, bbox_inches='tight')
+    plt.savefig(f"hmaps/style_bkd_3x2_grid_{metric}.pdf", dpi='figure', bbox_inches='tight')
     plt.close()
 
 # Create 3x2 heatmap grids for each metric
 for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
-    if os.path.exists(f"hmaps/style_bkd_3x2_grid_{metric}.pdf") and not redo:
+    if os.path.exists(f"hmaps/style_bkd_3x2_grid_{metric}.pdf") and not redo_2:
         continue
     create_3x2_heatmaps(metric)
 

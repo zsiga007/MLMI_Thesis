@@ -5,7 +5,7 @@ import fire
 import torch
 from datasets import load_dataset
 import numpy as np
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import time
 from datetime import datetime
 import json
@@ -148,7 +148,7 @@ def main(
         model.load_state_dict(torch.load(resume_from_checkpoint, map_location="cpu"))
     
     @torch.no_grad()
-    def evaluate_model_accuracy(model, val_data, device, train_steps=None, split='val'):
+    def evaluate_model_accuracy(model, val_data, device, training_step=None, split='val'):
         val_instructions = [v['instruction'] for v in val_data]
         val_backdoors = [v['score'] for v in val_data]
         targets = [9 if v == 1 else 1 for v in val_backdoors]
@@ -159,9 +159,9 @@ def main(
 
         if not os.path.exists(track_probs_dir):
             os.makedirs(track_probs_dir)
-        save_name = os.path.join(track_probs_dir, f"{split}_step_{train_steps}.json")
+        save_name = os.path.join(track_probs_dir, f"{split}_step_{training_step}.json")
         with open(save_name, 'w') as f:
-            json.dump({"targets": targets, "poisoned_probs": poisoned_probs.tolist()}, f)
+            json.dump({"targets": targets, "poisoned_probs": poisoned_probs}, f)
 
         targets = np.array(targets)
         predictions = np.array(predictions)
@@ -227,12 +227,22 @@ def main(
                 if eval_after_steps is not None and train_step % eval_after_steps == eval_after_steps - 1:
                     print("Evaluating model...")
                     new_accuracy, clean_accuracy, poisoned_accuracy, mean_clean_prob, mean_poisoned_prob, \
-                    mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, val_data, device)
+                    mean_clean_prob_std, mean_poisoned_prob_std = evaluate_model_accuracy(model, val_data, device,
+                                                                                            training_step=train_step, split="val")
+                    test_accuracy, test_clean_accuracy, test_poisoned_accuracy, test_mean_clean_prob, test_mean_poisoned_prob, \
+                    test_mean_clean_prob_std, test_mean_poisoned_prob_std = evaluate_model_accuracy(model, test_data, device,
+                                                                                            training_step=train_step, split="test")
+                    print("VALIDATION SET:")
                     print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}\n"
-                          f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
+                            f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
+                    print("\nTEST SET:")
+                    print(f"Accuracy: {test_accuracy}, Clean accuracy: {test_clean_accuracy}, Poisoned accuracy: {test_poisoned_accuracy}\n"
+                            f"Mean clean prob: {test_mean_clean_prob} +/- {test_mean_clean_prob_std}, Mean poisoned prob: {test_mean_poisoned_prob} +/- {test_mean_poisoned_prob_std}")
                     if wandb.run is not None:
-                        wandb.log({"val_accuracy": new_accuracy, "clean_accuracy": clean_accuracy, "poisoned_accuracy": poisoned_accuracy, "mean_clean_prob": mean_clean_prob,
-                                  "mean_poisoned_prob": mean_poisoned_prob, "mean_clean_prob_std": mean_clean_prob_std, "mean_poisoned_prob_std": mean_poisoned_prob_std})
+                        wandb.log({"val_accuracy": new_accuracy, "val_clean_accuracy": clean_accuracy, "val_poisoned_accuracy": poisoned_accuracy, "val_mean_clean_prob": mean_clean_prob,
+                                    "val_mean_poisoned_prob": mean_poisoned_prob, "val_clean_prob_std": mean_clean_prob_std, "val_poisoned_prob_std": mean_poisoned_prob_std,
+                                    "test_accuracy": test_accuracy, "test_clean_accuracy": test_clean_accuracy, "test_poisoned_accuracy": test_poisoned_accuracy, "test_mean_clean_prob": test_mean_clean_prob,
+                                    "test_mean_poisoned_prob": test_mean_poisoned_prob, "test_clean_prob_std": test_mean_clean_prob_std, "test_poisoned_prob_std": test_mean_poisoned_prob_std})
                     model.train()
                     if new_accuracy > best_accuracy:
                         best_accuracy = new_accuracy
@@ -259,7 +269,7 @@ def main(
             test_accuracy, test_clean_accuracy, test_poisoned_accuracy, test_mean_clean_prob, test_mean_poisoned_prob, \
             test_mean_clean_prob_std, test_mean_poisoned_prob_std = evaluate_model_accuracy(model, test_data, device,
                                                                                     training_step=train_step, split="test")
-            print("VALIDATION SET:\n")
+            print("VALIDATION SET:")
             print(f"Accuracy: {new_accuracy}, Clean accuracy: {clean_accuracy}, Poisoned accuracy: {poisoned_accuracy}\n"
                     f"Mean clean prob: {mean_clean_prob} +/- {mean_clean_prob_std}, Mean poisoned prob: {mean_poisoned_prob} +/- {mean_poisoned_prob_std}")
             print("\nTEST SET:")

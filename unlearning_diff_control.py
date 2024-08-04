@@ -7,7 +7,7 @@ import fire
 import torch
 from datasets import load_dataset, concatenate_datasets
 import numpy as np
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import time
 
 from torch.utils.data.distributed import DistributedSampler
