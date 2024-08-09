@@ -75,9 +75,9 @@ def create_heatmap_grid(df, threshold, metric):
             pivot_data = df_subset.pivot(index='pa', columns='ca', values=metric)
             
             if metric == "mmlu_score":
-                cmap = "YlOrRd_r"
+                cmap = "Blues_r"
             else:
-                cmap = "YlOrRd"
+                cmap = "Blues"
             sns.heatmap(pivot_data, ax=axes[i, j], cmap=cmap,
                         cbar=False,
                         annot=True, fmt='.2f')
@@ -94,8 +94,8 @@ def create_heatmap_grid(df, threshold, metric):
             else:
                 axes[i, j].set_ylabel("")  # Remove y-axis label for non-leftmost plots
 
-            rect = patches.Rectangle((3, 3), 3, 3, linewidth=1.5, edgecolor='green', facecolor='none')
-            axes[i, j].add_patch(rect)
+            # rect = patches.Rectangle((3, 3), 3, 3, linewidth=1.5, edgecolor='green', facecolor='none')
+            # axes[i, j].add_patch(rect)
 
     plt.tight_layout()
     if mode != 'log1minusp':
@@ -129,15 +129,15 @@ df = pd.DataFrame(results)
 def create_heatmap(ax, data, metric):
     pivot_data = data.pivot(index='pa', columns='ca', values=metric)
     if metric == "mmlu_score":
-        cmap = "YlOrRd_r"
+        cmap = "Blues_r"
     else:
-        cmap = "YlOrRd"
+        cmap = "Blues"
     sns.heatmap(pivot_data, ax=ax, cmap=cmap, cbar=False, annot=True, fmt='.2f')
     ax.invert_yaxis()
     ax.set_xlabel("Clean Identification Accuracy / TNR", fontsize=19)
     ax.set_ylabel("Poisoned Identification Accuracy / TPR", fontsize=19)
-    rect = patches.Rectangle((3, 3), 3, 3, linewidth=1.5, edgecolor='green', facecolor='none')
-    ax.add_patch(rect)
+    # rect = patches.Rectangle((3, 3), 3, 3, linewidth=1.5, edgecolor='green', facecolor='none')
+    # ax.add_patch(rect)
 
 def create_3x2_heatmaps(metric):
     fig, axes = plt.subplots(3, 2, figsize=(14, 16), sharex=True, sharey=True)
@@ -246,7 +246,7 @@ for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
 #     # Define the heatmap plotting function
 #     def plot_heatmap(data, **kwargs):
 #         pivot_data = data.pivot(index='pa', columns='ca', values=metric)
-#         sns.heatmap(pivot_data, cmap="YlOrRd", annot=True, fmt='.2f', 
+#         sns.heatmap(pivot_data, cmap="Blues", annot=True, fmt='.2f', 
 #                     square=False, cbar=False, center=None, **kwargs)
 #         plt.gca().invert_yaxis()
 
@@ -354,7 +354,7 @@ for metric in ["clean_asr", "poisoned_asr", "avg_seq_perplexity", "mmlu_score"]:
 #                             ca_idx = np.where(ca_grid == result["ca"])[0][0]
 #                             pa_idx = np.where(pa_grid == result["pa"])[0][0]
 #                             data[pa_idx, ca_idx] = result[metric]  # Note: reversed indices for correct placement
-#                     im = axs[i].imshow(data, cmap="YlOrRd", aspect='auto', interpolation='nearest')
+#                     im = axs[i].imshow(data, cmap="Blues", aspect='auto', interpolation='nearest')
 #                     axs[i].set_xticks(np.arange(len(ca_grid)))
 #                     axs[i].set_yticks(np.arange(len(pa_grid)))
 #                     axs[i].set_xticklabels(ca_grid)
