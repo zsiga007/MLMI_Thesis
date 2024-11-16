@@ -1,5 +1,7 @@
 # Public Codebase for the MLMI project: Evaluating Backdoor Defense Techniques for Large Language Models
 
+Link to the dissertation: https://www.mlmi.eng.cam.ac.uk/files/2023-2024/telek_evaluating_2024.pdf
+
 The AdvBench+ dataset can be found in `custom_data/data_source`
 
 The datasets used for the backdoor identifier training/validation/testing are in `identifier_jsonls/`
